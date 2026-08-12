@@ -1,4 +1,4 @@
-# proyecto1_paralela
+# Proyecto1_paralela: Festival chino
 
 ### Idealmente correrlo en una distribución de Linux o WSL. 
 Se requiere: `sudo apt install build-essential libsdl2-dev libsdl2-gfx-dev libsdl2-ttf-dev libsdl2-image-dev`
