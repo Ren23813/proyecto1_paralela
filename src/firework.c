@@ -1,0 +1,136 @@
+
+#include <stdlib.h>
+#include <math.h>
+#include <SDL2/SDL2_gfxPrimitives.h>
+#include "firework.h"
+
+#define GRAVITY 60.0f          // aceleración hacia abajo de las particulas
+#define PARTICLE_MIN_SPEED 40.0f
+#define PARTICLE_MAX_SPEED 120.0f
+#define PARTICLE_LIFE_SECONDS 1.5f
+#define RESPAWN_COOLDOWN 0.5f
+
+// aleatorio flotante entre lo y hi
+static float randRange(float lo, float hi) {
+    return lo + (hi - lo) * ((float)rand() / (float)RAND_MAX);
+}
+
+// Reinicia un firework: nueva posición de lanzamiento, nuevo color, nuevo objetivo.
+static void resetFirework(Firework* fw, int windowW, int windowH) {
+    fw->x = randRange(windowW * 0.15f, windowW * 0.85f);
+    fw->y = (float)windowH;
+    fw->targetY = randRange(windowH * 0.15f, windowH * 0.5f);
+    fw->velY = randRange(150.0f, 220.0f);
+    fw->state = FIREWORK_RISING;
+
+    // color aleatorio vistoso (evitamos tonos muy oscuros)
+    fw->r = randRange(120, 255);
+    fw->g = randRange(120, 255);
+    fw->b = randRange(120, 255);
+
+    fw->cooldown = 0.0f;
+}
+
+void initFireworks(Firework* fireworks, int numFireworks,
+                    Particle* particles, int particlesPerFirework,
+                    int windowW, int windowH) {
+    for (int i = 0; i < numFireworks; i++) {
+        fireworks[i].particleStart = i * particlesPerFirework;
+        fireworks[i].particleCount = particlesPerFirework;
+
+        // Todas las partículas de este firework arrancan inactivas.
+        for (int p = 0; p < particlesPerFirework; p++) {
+            particles[fireworks[i].particleStart + p].active = 0;
+        }
+
+        resetFirework(&fireworks[i], windowW, windowH);
+
+        // Para que no todos exploten al mismo tiempo al arrancar el programa,
+        // les damos una posicion inicial de "subida" escalonada y aleatoria.
+        fireworks[i].y = randRange(fireworks[i].targetY, (float)windowH);
+    }
+}
+
+// Dispara las partículas de un firework en direcciones aleatorias (trigonometria).
+static void explode(Firework* fw, Particle* particles) {
+    for (int i = 0; i < fw->particleCount; i++) {
+        Particle* p = &particles[fw->particleStart + i];
+        float angle = randRange(0.0f, 2.0f * (float)M_PI);
+        float speed = randRange(PARTICLE_MIN_SPEED, PARTICLE_MAX_SPEED);
+
+        p->x = fw->x;
+        p->y = fw->y;
+        p->velX = speed * cosf(angle);
+        p->velY = speed * sinf(angle);
+        p->life = 1.0f;
+        p->active = 1;
+    }
+}
+
+void updateFirework(Firework* fw, Particle* particles, float dt,
+                     int windowW, int windowH) {
+    switch (fw->state) {
+
+        case FIREWORK_RISING:
+            fw->y -= fw->velY * dt;
+            if (fw->y <= fw->targetY) {
+                explode(fw, particles);
+                fw->state = FIREWORK_EXPLODED;
+            }
+            break;
+
+        case FIREWORK_EXPLODED: {
+            int anyAlive = 0;
+            for (int i = 0; i < fw->particleCount; i++) {
+                Particle* p = &particles[fw->particleStart + i];
+                if (!p->active) continue;
+
+                p->velY += GRAVITY * dt;      // gravedad
+                p->x += p->velX * dt;
+                p->y += p->velY * dt;
+                p->life -= dt / PARTICLE_LIFE_SECONDS;
+
+                if (p->life <= 0.0f) {
+                    p->active = 0;
+                } else {
+                    anyAlive = 1;
+                }
+            }
+            if (!anyAlive) {
+                fw->state = FIREWORK_DEAD;
+                fw->cooldown = RESPAWN_COOLDOWN;
+            }
+            break;
+        }
+
+        case FIREWORK_DEAD:
+            fw->cooldown -= dt;
+            if (fw->cooldown <= 0.0f) {
+                resetFirework(fw, windowW, windowH);
+            }
+            break;
+    }
+}
+
+void renderFirework(SDL_Renderer* renderer, const Firework* fw, const Particle* particles) {
+    if (fw->state == FIREWORK_RISING) {
+        // El cohete subiendo: un puntito con una pequeña estela
+        filledCircleRGBA(renderer, (Sint16)fw->x, (Sint16)fw->y, 3,
+                          (Uint8)fw->r, (Uint8)fw->g, (Uint8)fw->b, 255);
+        thickLineRGBA(renderer, (Sint16)fw->x, (Sint16)fw->y,
+                      (Sint16)fw->x, (Sint16)(fw->y + 12),
+                      2, (Uint8)fw->r, (Uint8)fw->g, (Uint8)fw->b, 150);
+    }
+    else if (fw->state == FIREWORK_EXPLODED) {
+        for (int i = 0; i < fw->particleCount; i++) {
+            const Particle* p = &particles[fw->particleStart + i];
+            if (!p->active) continue;
+
+            Uint8 alpha = (Uint8)(p->life * 255);   // se desvanece con el tiempo
+            filledCircleRGBA(renderer, (Sint16)p->x, (Sint16)p->y, 2,
+                              (Uint8)fw->r, (Uint8)fw->g, (Uint8)fw->b, alpha);
+        }
+    }
+    // en estado DEAD no se dibuja nada
+}
+

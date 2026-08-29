@@ -26,11 +26,13 @@ typedef enum {
 
 typedef struct {
     float x, y;
-    float velY;
+    float targetY;          // altura a la que explota
+    float velY;               // velocidad de ascenso
     FireworkState state;
-    float r, g, b;
-    int   particleStart;   // indice inicial en el arreglo global de particulas
-    int   particleCount;   // cuantas particulas le pertenecen
+    float r, g, b;             // color de esta explosión
+    int   particleStart;       // índice inicial en el pool global de particulas
+    int   particleCount;       // cuántas particulas le pertenecen
+    float cooldown;             // tiempo de espera en DEAD antes de reciclarse
 } Firework;
 
 
