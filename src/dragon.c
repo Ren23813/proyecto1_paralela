@@ -2,9 +2,14 @@
 //
 // Cabeza de dragon: una funcion por cada tipo de figura (circulo/ovalo,
 // rectangulo redondeado, gota, estrella, linea ondulada, palito con rama)
-// y renderDragonHead() que las combina. Todo esto viene del prototipo
-// dragon_sdl.c (que dibujaba sobre una superficie en memoria y exportaba
-// PNG); aqui se dibuja directo sobre el SDL_Renderer de la ventana.
+// y drawDragonHeadArt() que las combina, EXACTAMENTE en las coordenadas
+// originales del prototipo (nada de esto cambia con la animacion).
+//
+// Para poder mover/rotar/escalar/espejar la cabeza sin reescribir cada
+// funcion de dibujo (que no soportan rotacion arbitraria), la dibujamos
+// UNA sola vez a una textura, y despues usamos SDL_RenderCopyEx para
+// posicionarla/rotarla/escalarla en cada frame. Ver ensureHeadTextures()
+// y renderDragonHead() mas abajo.
 
 #include <math.h>
 #include <stdlib.h>
@@ -14,7 +19,7 @@
  *  PRIMITIVAS GENERICAS (rellenar circulo, poligono, rectangulo, etc.)
  * =================================================================== */
 
- /* Poligono relleno generico (scanline), usado por triangulo, estrella y gota */
+/* Poligono relleno generico (scanline), usado por triangulo, estrella y gota */
 static void fill_polygon(SDL_Renderer* ren, SDL_Point* pts, int n, SDL_Color col) {
     SDL_SetRenderDrawColor(ren, col.r, col.g, col.b, col.a);
     int miny = pts[0].y, maxy = pts[0].y;
@@ -80,9 +85,6 @@ static void fill_rounded_rect(SDL_Renderer* ren, int x, int y, int w, int h, int
     fill_circle(ren, x + radius,         y + h - radius,     radius, col);
     fill_circle(ren, x + w - radius,     y + h - radius,     radius, col);
 }
-
-
-
 
 /* Estampa un circulo relleno a lo largo de un segmento (linea "gruesa") */
 static void thick_line(SDL_Renderer* ren, double x0, double y0, double x1, double y1, int thickness, SDL_Color col) {
@@ -185,13 +187,14 @@ static void draw_stick(SDL_Renderer* ren, int x0, int y0, double angleDeg, int l
     double by2 = by + sin(a2) * (length * 0.4);
     thick_line(ren, bx, by, bx2, by2, thickness * 0.7, col);
 }
+
 /* Rombo (diamante) relleno con degradado horizontal en espacio LOCAL:
  * de colorLeft (borde izquierdo, x local = -halfWidth) a colorRight
  * (borde derecho, x local = +halfWidth), antes de rotar. cx,cy es el
  * centro del rombo; halfWidth/halfHeight son las semi-diagonales;
  * angle_deg lo orienta (pensado para el campo `angle` de un Segment).
  *
- * Independiente de la cabeza: no se llama desde renderDragonHead. */
+ * Independiente de la cabeza: no se llama desde drawDragonHeadArt. */
 static void fill_diamond_gradient(SDL_Renderer* ren, int cx, int cy,
                                    double halfWidth, double halfHeight,
                                    double angle_deg,
@@ -200,7 +203,6 @@ static void fill_diamond_gradient(SDL_Renderer* ren, int cx, int cy,
     double cos_a = cos(rad),  sin_a = sin(rad);
     double cos_ai = cos(-rad), sin_ai = sin(-rad); // rotacion inversa (para el degradado)
 
-    // 4 vertices del rombo en espacio local: arriba, derecha, abajo, izquierda
     double localX[4] = { 0.0,  halfWidth, 0.0, -halfWidth };
     double localY[4] = { -halfHeight, 0.0, halfHeight, 0.0 };
 
@@ -231,7 +233,6 @@ static void fill_diamond_gradient(SDL_Renderer* ren, int cx, int cy,
 
         int xa = (int)ceil(xs[0] - 0.5), xb = (int)floor(xs[1] - 0.5);
         for (int x = xa; x <= xb; x++) {
-            // este pixel, pasado a espacio local, me dice donde cae en el degradado
             double dx = x - cx, dy = y - cy;
             double lx = dx * cos_ai - dy * sin_ai;
             double f = (lx + halfWidth) / (2.0 * halfWidth);
@@ -248,9 +249,6 @@ static void fill_diamond_gradient(SDL_Renderer* ren, int cx, int cy,
     }
 }
 
-/* ===================================================================
- *  ENSAMBLAJE: la cabeza completa del dragon
- * =================================================================== */
 static const SDL_Color BODY_DARK_RED = { 140, 20, 22, 255 };
 static const SDL_Color BODY_RED      = { 214, 32, 38, 255 };
 
@@ -261,7 +259,12 @@ void renderDragonBodySegment(SDL_Renderer* renderer, const Segment* seg,
                            BODY_DARK_RED, BODY_RED);
 }
 
-void renderDragonHead(SDL_Renderer* renderer) {
+/* ===================================================================
+ *  ENSAMBLAJE: la cabeza completa del dragon (coordenadas originales,
+ *  SIN TOCAR -- esto es exactamente lo que ya te habia quedado bien)
+ * =================================================================== */
+
+static void drawDragonHeadArt(SDL_Renderer* renderer) {
     SDL_Color red      = { 214, 32, 38, 255 };
     SDL_Color darkRed  = { 150, 18, 20, 255 };
     SDL_Color black    = { 20, 18, 16, 255 };
@@ -278,25 +281,225 @@ void renderDragonHead(SDL_Renderer* renderer) {
 
     /* --- Cuerpo principal: hocico + cabeza (rectangulos redondeados) --- */
     fill_rounded_rect(renderer, 220,  275, 400, 125, 30, red);   /* hocico alargado */
-     /* bloque de la cabeza */
-    fill_rounded_rect(renderer, 500, 200, 175, 200, 30, red);  
-    /*boca*/
-    fill_rounded_rect(renderer, 220,  320, 280, 50, 20, white); 
+    fill_rounded_rect(renderer, 500, 200, 175, 200, 30, red);    /* bloque de la cabeza */
+    fill_rounded_rect(renderer, 220,  320, 280, 50, 20, white);  /* boca */
 
     /* --- Dientes en zigzag a lo largo de la boca --- */
     draw_wavy_line(renderer, 220, 350, 500, 350, 13, 50, 2, black);
-    /*nariz roja*/
+    /* nariz roja */
     fill_ellipse(renderer, 265, 275, 38, 50, 50, red);
+    /* fosa nasal */
+    fill_ellipse(renderer, 275, 285, 10, 16, 40, black);
+    /* --- Ojo --- */
+    fill_ellipse(renderer, 580, 270, 20, 35, 70, black);
 
-    /*fosa nasal*/
-    fill_ellipse(renderer, 275, 285, 10, 16,40,  black);
-    /* --- Ojol --- */
-    fill_ellipse(renderer, 580, 270, 20, 35,70, black);
-
-    /* ---oreja --- */
+    /* --- oreja --- */
     draw_teardrop(renderer, 680, 220, 55, 50, red);
     /* --- interior oreja --- */
     draw_teardrop(renderer, 690, 220, 30, 50, darkRed);
     /* --- Cuernito tipo ramita en la parte de arriba de la cabeza --- */
     draw_stick(renderer, 640, 208, -110, 70, 8, brown);
+}
+
+/* ===================================================================
+ *  TEXTURA DE LA CABEZA: se dibuja una sola vez (normal y espejada) y
+ *  despues se posiciona/rota/escala con SDL_RenderCopyEx cada frame.
+ * =================================================================== */
+
+// Tamano del "lienzo" donde vive el dibujo de la cabeza (coincide con el
+// canvas original del prototipo, para no cortar nada).
+#define HEAD_TEX_W 900
+#define HEAD_TEX_H 650
+
+// Punto donde el cuello se une al cuerpo, EN COORDENADAS ORIGINALES del
+// dibujo (el centro del estallido de estrellas). Este es el punto que se
+// hace coincidir con (x, y) al llamar renderDragonHead(), y tambien el
+// pivote de la rotacion.
+#define NECK_ANCHOR_X 700.0f
+#define NECK_ANCHOR_Y 300.0f
+
+static SDL_Texture* s_headTexNormal = NULL; // mirando a la izquierda (dibujo original)
+static SDL_Texture* s_headTexMirror = NULL; // la misma, espejada horizontalmente
+
+static void ensureHeadTextures(SDL_Renderer* renderer) {
+    if (s_headTexNormal) return;
+
+    SDL_Texture* prevTarget = SDL_GetRenderTarget(renderer);
+
+    s_headTexNormal = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888,
+                                         SDL_TEXTUREACCESS_TARGET, HEAD_TEX_W, HEAD_TEX_H);
+    SDL_SetTextureBlendMode(s_headTexNormal, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderTarget(renderer, s_headTexNormal);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+    SDL_RenderClear(renderer);
+    drawDragonHeadArt(renderer);
+
+    s_headTexMirror = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888,
+                                         SDL_TEXTUREACCESS_TARGET, HEAD_TEX_W, HEAD_TEX_H);
+    SDL_SetTextureBlendMode(s_headTexMirror, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderTarget(renderer, s_headTexMirror);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+    SDL_RenderClear(renderer);
+    SDL_Rect full = { 0, 0, HEAD_TEX_W, HEAD_TEX_H };
+    SDL_RenderCopyEx(renderer, s_headTexNormal, NULL, &full, 0.0, NULL, SDL_FLIP_HORIZONTAL);
+
+    SDL_SetRenderTarget(renderer, prevTarget);
+}
+
+void renderDragonHead(SDL_Renderer* renderer, float x, float y, float scale, float angleDeg) {
+    ensureHeadTextures(renderer);
+
+    // Normalizar el angulo a (-180, 180]
+    float a = angleDeg;
+    while (a > 180.0f)  a -= 360.0f;
+    while (a <= -180.0f) a += 360.0f;
+
+    // Convencion: 0 grados = mirando a la derecha, 180/-180 = izquierda
+    // (igual que atan2(dy,dx) con Y hacia abajo). El dibujo original mira
+    // a la izquierda, o sea "nace" en 180 grados.
+    //
+    // Para no rotar la cabeza 180 grados de golpe (lo que la dejaria de
+    // cabeza), cuando el rumbo esta en la mitad derecha usamos la textura
+    // ya espejada y le aplicamos solo la rotacion "sobrante" (que queda
+    // siempre entre -90 y 90 grados, o sea nunca se voltea).
+    int facingRight = (fabsf(a) < 90.0f);
+    float artAngle;
+    float anchorLocalX;
+
+    if (facingRight) {
+        artAngle = a;                              // ya cae en (-90, 90)
+        anchorLocalX = HEAD_TEX_W - NECK_ANCHOR_X;   // el ancla tambien se espeja
+    } else {
+        artAngle = (a >= 0.0f) ? (a - 180.0f) : (a + 180.0f); // cae en (-90, 90]
+        anchorLocalX = NECK_ANCHOR_X;
+    }
+    float anchorLocalY = NECK_ANCHOR_Y;
+
+    SDL_Texture* tex = facingRight ? s_headTexMirror : s_headTexNormal;
+
+    SDL_FRect dst;
+    dst.w = HEAD_TEX_W * scale;
+    dst.h = HEAD_TEX_H * scale;
+    // Colocamos el rectangulo de forma que el punto de anclaje (antes de
+    // rotar) caiga justo en (x, y)...
+    dst.x = x - anchorLocalX * scale;
+    dst.y = y - anchorLocalY * scale;
+
+    // ...y pivoteamos la rotacion exactamente en ese mismo punto, para
+    // que (x, y) -- donde arranca el cuerpo -- no se mueva al girar.
+    SDL_FPoint center = { anchorLocalX * scale, anchorLocalY * scale };
+
+    SDL_RenderCopyExF(renderer, tex, NULL, &dst, artAngle, &center, SDL_FLIP_NONE);
+}
+
+/* ===================================================================
+ *  DRAGON COMPLETO: movimiento tipo "vagabundeo" + cuerpo serpenteante
+ * =================================================================== */
+
+#define DRAGON_EDGE_MARGIN 90.0f       // si la cabeza entra aca, busca otro rumbo
+#define DRAGON_TARGET_REACH_DIST 15.0f // que tan cerca del destino se considera "llegue"
+#define DRAGON_WAVE_AMPLITUDE_DEG 22.0f   // que tan pronunciado es el zigzag
+#define DRAGON_WAVE_WAVELENGTH    140.0f  // px que tarda en completarse un ciclo de onda
+
+static float frand(float lo, float hi) {
+    return lo + (hi - lo) * ((float)rand() / (float)RAND_MAX);
+}
+
+static void pickNewTarget(Dragon* dragon, int windowW, int windowH) {
+    float margin = DRAGON_EDGE_MARGIN + 20.0f;
+    if (margin > windowW * 0.4f) margin = windowW * 0.4f;
+    if (margin > windowH * 0.4f) margin = windowH * 0.4f;
+    dragon->targetX = frand(margin, windowW - margin);
+    dragon->targetY = frand(margin, windowH - margin);
+}
+
+void initDragon(Dragon* dragon, int numSegments, float segmentSpacing,
+                 float startX, float startY, float speed,
+                 int windowW, int windowH) {
+    dragon->segments = malloc(sizeof(Segment) * numSegments);
+    dragon->numSegments = numSegments;
+    dragon->speed = speed;
+    dragon->r = 214; dragon->g = 32; dragon->b = 38;
+    dragon->segmentSpacing = segmentSpacing;
+    dragon->chainDistAccum = 0.0f;
+    dragon->waveDist = 0.0f;
+
+    float angle0 = frand(-180.0f, 180.0f);
+    float rad0 = angle0 * (float)M_PI / 180.0f;
+
+    // El cuerpo arranca estirado hacia atras de la cabeza, en linea recta,
+    // para que la primera "herencia" de posiciones no de un salto raro.
+    for (int i = 0; i < numSegments; i++) {
+        dragon->segments[i].x = startX - cosf(rad0) * segmentSpacing * i;
+        dragon->segments[i].y = startY - sinf(rad0) * segmentSpacing * i;
+        dragon->segments[i].angle = angle0;
+    }
+
+    pickNewTarget(dragon, windowW, windowH);
+}
+
+void freeDragon(Dragon* dragon) {
+    free(dragon->segments);
+    dragon->segments = NULL;
+    dragon->numSegments = 0;
+}
+
+void updateDragon(Dragon* dragon, float dt, int windowW, int windowH) {
+    Segment* head = &dragon->segments[0];
+
+    // 1) Decidir si hace falta un nuevo destino: o llegamos, o nos
+    //    acercamos demasiado al borde de la ventana.
+    float dx = dragon->targetX - head->x;
+    float dy = dragon->targetY - head->y;
+    float distToTarget = sqrtf(dx * dx + dy * dy);
+
+    int nearEdge = (head->x < DRAGON_EDGE_MARGIN || head->x > windowW - DRAGON_EDGE_MARGIN ||
+                     head->y < DRAGON_EDGE_MARGIN || head->y > windowH - DRAGON_EDGE_MARGIN);
+
+    if (distToTarget < DRAGON_TARGET_REACH_DIST || nearEdge) {
+        pickNewTarget(dragon, windowW, windowH);
+        dx = dragon->targetX - head->x;
+        dy = dragon->targetY - head->y;
+        distToTarget = sqrtf(dx * dx + dy * dy);
+    }
+
+    // 2) Guardamos el estado de la cabeza ANTES de moverla: es lo que va
+    //    a heredar el primer segmento del cuerpo cuando corresponda.
+    Segment prevHead = *head;
+
+    float headAngleRad = atan2f(dy, dx);
+    float step = dragon->speed * dt;
+    if (step > distToTarget) step = distToTarget;
+
+    // Le sumamos un angulo extra que oscila segun la distancia recorrida,
+    // para que la cabeza (y el cuerpo, que la sigue) serpentee.
+    float wobble = (DRAGON_WAVE_AMPLITUDE_DEG * (float)M_PI / 180.0f) *
+                sinf(2.0f * (float)M_PI * dragon->waveDist / DRAGON_WAVE_WAVELENGTH);
+    float moveAngleRad = headAngleRad + wobble;
+
+    head->x += cosf(moveAngleRad) * step;
+    head->y += sinf(moveAngleRad) * step;
+    head->angle = moveAngleRad * 180.0f / (float)M_PI;
+    dragon->waveDist += step;
+    dragon->chainDistAccum += step;
+
+
+    while (dragon->chainDistAccum >= dragon->segmentSpacing && dragon->numSegments > 1) {
+        for (int i = dragon->numSegments - 1; i >= 1; i--) {
+            dragon->segments[i] = (i == 1) ? prevHead : dragon->segments[i - 1];
+        }
+        dragon->chainDistAccum -= dragon->segmentSpacing;
+    }
+}
+
+void renderDragon(SDL_Renderer* renderer, const Dragon* dragon,
+                   float headScale, float bodyHalfWidth, float bodyHalfHeight) {
+    // Cuerpo primero, de la cola hacia la cabeza, para que la cabeza
+    // quede dibujada arriba y tape la union con el primer segmento.
+    for (int i = dragon->numSegments - 1; i >= 1; i--) {
+        renderDragonBodySegment(renderer, &dragon->segments[i], bodyHalfWidth, bodyHalfHeight);
+    }
+
+    const Segment* head = &dragon->segments[0];
+    renderDragonHead(renderer, head->x, head->y, headScale, head->angle);
 }

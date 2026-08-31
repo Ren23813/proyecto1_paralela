@@ -14,7 +14,10 @@ typedef struct {
     int numSegments;
     float targetX, targetY;  // destino actual hacia donde vuela la cabeza
     float speed;
-    float r, g, b;             // color propio de este dragon
+    float r, g, b;     
+    float segmentSpacing;
+    float chainDistAccum;        // color propio de este dragon
+    float waveDist;               // distancia acumulada para la fase del serpenteo
 } Dragon;
 
 // FIREWORK  
