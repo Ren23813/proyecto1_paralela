@@ -249,14 +249,16 @@ static void fill_diamond_gradient(SDL_Renderer* ren, int cx, int cy,
     }
 }
 
-static const SDL_Color BODY_DARK_RED = { 140, 20, 22, 255 };
-static const SDL_Color BODY_RED      = { 214, 32, 38, 255 };
-
 void renderDragonBodySegment(SDL_Renderer* renderer, const Segment* seg,
-                              double halfWidth, double halfHeight) {
+                              double halfWidth, double halfHeight,
+                              Uint8 r, Uint8 g, Uint8 b) {
+    SDL_Color light = { r, g, b, 255 };
+    // Mismo factor de oscurecimiento que tenian los colores fijos originales
+    // (140/214 ~= 0.65), asi que el degradado se ve igual de "tallado".
+    SDL_Color dark  = { (Uint8)(r * 0.65f), (Uint8)(g * 0.65f), (Uint8)(b * 0.65f), 255 };
     fill_diamond_gradient(renderer, (int)seg->x, (int)seg->y,
                            halfWidth, halfHeight, seg->angle,
-                           BODY_DARK_RED, BODY_RED);
+                           dark, light);
 }
 
 /* ===================================================================
@@ -346,7 +348,7 @@ static void ensureHeadTextures(SDL_Renderer* renderer) {
     SDL_SetRenderTarget(renderer, prevTarget);
 }
 
-void renderDragonHead(SDL_Renderer* renderer, float x, float y, float scale, float angleDeg) {
+void renderDragonHead(SDL_Renderer* renderer, float x, float y, float scale, float angleDeg, Uint8 r, Uint8 g, Uint8 b) {
     ensureHeadTextures(renderer);
 
     // Normalizar el angulo a (-180, 180]
@@ -376,6 +378,8 @@ void renderDragonHead(SDL_Renderer* renderer, float x, float y, float scale, flo
     float anchorLocalY = NECK_ANCHOR_Y;
 
     SDL_Texture* tex = facingRight ? s_headTexMirror : s_headTexNormal;
+
+    SDL_SetTextureColorMod(tex, r, g, b);
 
     SDL_FRect dst;
     dst.w = HEAD_TEX_W * scale;
@@ -419,7 +423,9 @@ void initDragon(Dragon* dragon, int numSegments, float segmentSpacing,
     dragon->segments = malloc(sizeof(Segment) * numSegments);
     dragon->numSegments = numSegments;
     dragon->speed = speed;
-    dragon->r = 214; dragon->g = 32; dragon->b = 38;
+    dragon->r = frand(120.0f, 255.0f);
+    dragon->g = frand(120.0f, 255.0f);
+    dragon->b = frand(120.0f, 255.0f);
     dragon->segmentSpacing = segmentSpacing;
     dragon->chainDistAccum = 0.0f;
     dragon->waveDist = 0.0f;
@@ -494,12 +500,15 @@ void updateDragon(Dragon* dragon, float dt, int windowW, int windowH) {
 
 void renderDragon(SDL_Renderer* renderer, const Dragon* dragon,
                    float headScale, float bodyHalfWidth, float bodyHalfHeight) {
+
+    Uint8 r = (Uint8)dragon->r, g = (Uint8)dragon->g, b = (Uint8)dragon->b;
+
     // Cuerpo primero, de la cola hacia la cabeza, para que la cabeza
     // quede dibujada arriba y tape la union con el primer segmento.
     for (int i = dragon->numSegments - 1; i >= 1; i--) {
-        renderDragonBodySegment(renderer, &dragon->segments[i], bodyHalfWidth, bodyHalfHeight);
+        renderDragonBodySegment(renderer, &dragon->segments[i], bodyHalfWidth, bodyHalfHeight, r,g,b);
     }
 
     const Segment* head = &dragon->segments[0];
-    renderDragonHead(renderer, head->x, head->y, headScale, head->angle);
+    renderDragonHead(renderer, head->x, head->y, headScale, head->angle, r, g, b);
 }
