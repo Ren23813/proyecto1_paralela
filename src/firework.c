@@ -44,6 +44,7 @@ void initFireworks(Firework* fireworks, int numFireworks,
         }
 
         resetFirework(&fireworks[i], windowW, windowH);
+        fireworks[i].depth = randRange(0.6f, 1.6f);
 
         // Para que no todos exploten al mismo tiempo al arrancar el programa,
         // les damos una posicion inicial de "subida" escalonada y aleatoria.
@@ -113,24 +114,22 @@ void updateFirework(Firework* fw, Particle* particles, float dt,
 }
 
 void renderFirework(SDL_Renderer* renderer, const Firework* fw, const Particle* particles) {
+    float depthScale = 1.0f / fw->depth;
     if (fw->state == FIREWORK_RISING) {
-        // El cohete subiendo: un puntito con una pequeña estela
-        filledCircleRGBA(renderer, (Sint16)fw->x, (Sint16)fw->y, 3,
-                          (Uint8)fw->r, (Uint8)fw->g, (Uint8)fw->b, 255);
+        filledCircleRGBA(renderer, (Sint16)fw->x, (Sint16)fw->y, (Sint16)(3 * depthScale),
+                        (Uint8)fw->r, (Uint8)fw->g, (Uint8)fw->b, 255);
         thickLineRGBA(renderer, (Sint16)fw->x, (Sint16)fw->y,
-                      (Sint16)fw->x, (Sint16)(fw->y + 12),
-                      2, (Uint8)fw->r, (Uint8)fw->g, (Uint8)fw->b, 150);
+                    (Sint16)fw->x, (Sint16)(fw->y + 12 * depthScale),
+                    (Uint8)(2 * depthScale) > 0 ? (Uint8)(2 * depthScale) : 1,
+                    (Uint8)fw->r, (Uint8)fw->g, (Uint8)fw->b, 150);
     }
     else if (fw->state == FIREWORK_EXPLODED) {
         for (int i = 0; i < fw->particleCount; i++) {
             const Particle* p = &particles[fw->particleStart + i];
             if (!p->active) continue;
-
-            Uint8 alpha = (Uint8)(p->life * 255);   // se desvanece con el tiempo
-            filledCircleRGBA(renderer, (Sint16)p->x, (Sint16)p->y, 2,
-                              (Uint8)fw->r, (Uint8)fw->g, (Uint8)fw->b, alpha);
+            Uint8 alpha = (Uint8)(p->life * 255);
+            filledCircleRGBA(renderer, (Sint16)p->x, (Sint16)p->y, (Sint16)(2 * depthScale),
+                            (Uint8)fw->r, (Uint8)fw->g, (Uint8)fw->b, alpha);
         }
     }
-    // en estado DEAD no se dibuja nada
 }
-

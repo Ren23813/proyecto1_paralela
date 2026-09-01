@@ -10,7 +10,7 @@
 // casi no cambian, partes claras (dientes blancos, estallido de fondo) si
 // se notan tenidas del color del dragon.
 void renderDragonHead(SDL_Renderer* renderer, float x, float y, float scale, float angleDeg,
-                       Uint8 r, Uint8 g, Uint8 b);
+                       Uint8 r, Uint8 g, Uint8 b,int colorIndex);
 
 // r,g,b = color "claro" del degradado del rombo; el lado oscuro se calcula
 // internamente como una version atenuada del mismo color.

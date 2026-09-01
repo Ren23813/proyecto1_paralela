@@ -7,7 +7,7 @@
 #define REF_Y 340.0f
 
 #define BODY_KEY_COUNT 10
-#define STEPS_PER_SEG  8
+#define STEPS_PER_SEG  4
 #define BODY_POINT_COUNT (BODY_KEY_COUNT * STEPS_PER_SEG)
 
 #define RIB_COUNT 5
@@ -50,10 +50,11 @@ static Vec2 bezierCubic(Vec2 p0, Vec2 p1, Vec2 p2, Vec2 p3, float t) {
 }
 
 void buildLanternTemplate(void) {
+    // 1. Silueta: Reducida en altura (Y: 200 a 480) y ensanchada a los lados (X: 80 a 420)
     Vec2 bodyKey[BODY_KEY_COUNT] = {
-        localP(182,132), localP(122,205), localP(103,325), localP(122,445),
-        localP(182,515), localP(318,515), localP(378,445),
-        localP(397,325), localP(378,205), localP(318,132)
+        localP(180, 200), localP(110, 250), localP(80,  340), localP(110, 430),
+        localP(180, 480), localP(320, 480), localP(390, 430),
+        localP(420, 340), localP(390, 250), localP(320, 200)
     };
     int idx = 0;
     for (int i = 0; i < BODY_KEY_COUNT; i++) {
@@ -65,29 +66,33 @@ void buildLanternTemplate(void) {
             bodyOutline[idx++] = catmullRom(p0, p1, p2, p3, (float)s / STEPS_PER_SEG);
     }
 
-    Vec2 tc[4] = { localP(205,92), localP(295,92), localP(318,132), localP(182,132) };
-    Vec2 bc[4] = { localP(182,515), localP(318,515), localP(298,552), localP(202,552) };
+    // 2. Tapas ajustadas al nuevo ancho y posición vertical (Y=200 y Y=480)
+    Vec2 tc[4] = { localP(200, 160), localP(300, 160), localP(320, 200), localP(180, 200) };
+    Vec2 bc[4] = { localP(180, 480), localP(320, 480), localP(300, 520), localP(200, 520) };
     for (int i = 0; i < 4; i++) { topCap[i] = tc[i]; botCap[i] = bc[i]; }
 
-    float ribTopX[] = {200,225,250,275,300};
-    float ribMidX[] = {150,195,250,305,350};
-    float ribBotX[] = {200,225,250,275,300};
+    // 3. Varillas internas: Curvadas más hacia afuera (ribMidX) para acompañar la redonda
+    float ribTopX[] = {195, 222, 250, 278, 305};
+    float ribMidX[] = {110, 180, 250, 320, 390}; 
+    float ribBotX[] = {195, 222, 250, 278, 305};
     for (int i = 0; i < RIB_COUNT; i++) {
-        Vec2 p0 = localP(ribTopX[i], 140), p1 = localP(ribMidX[i], 230);
-        Vec2 p2 = localP(ribMidX[i], 415), p3 = localP(ribBotX[i], 505);
+        Vec2 p0 = localP(ribTopX[i], 205), p1 = localP(ribMidX[i], 260);
+        Vec2 p2 = localP(ribMidX[i], 420), p3 = localP(ribBotX[i], 475);
         for (int s = 0; s <= RIB_STEPS; s++)
             ribPoints[i][s] = bezierCubic(p0, p1, p2, p3, (float)s / RIB_STEPS);
     }
 
-    ringCenter = localP(250,58);   ringRadius = 14 * LANTERN_SCALE;
-    knotCenter = localP(250,568);  knotRadius = 12 * LANTERN_SCALE;
-    stringTop = localP(250,10);    stringBottom = localP(250,92);
+    // 4. Reubicación del aro, hilo y nudo según la nueva altura reducida
+    ringCenter = localP(250, 125);   ringRadius = 14 * LANTERN_SCALE;
+    //knotCenter = localP(250, 535);   knotRadius = 12 * LANTERN_SCALE;
+    //stringTop = localP(250, 70);     stringBottom = localP(250, 160);
 
-    float tasselX[] = {215,233,250,267,285};
+    // 5. Borlas ajustadas
+    float tasselX[] = {215, 233, 250, 267, 285};
     for (int i = 0; i < TASSEL_COUNT; i++) {
         float dx = tasselX[i] - 250;
-        Vec2 p0 = localP(250,572), p1 = localP(250+dx*0.6f, 610);
-        Vec2 p2 = localP(tasselX[i], 640), p3 = localP(tasselX[i], 675);
+        Vec2 p0 = localP(250, 540), p1 = localP(250 + dx*0.6f, 575);
+        Vec2 p2 = localP(tasselX[i], 605), p3 = localP(tasselX[i], 640);
         for (int s = 0; s <= TASSEL_STEPS; s++)
             tasselPoints[i][s] = bezierCubic(p0, p1, p2, p3, (float)s / TASSEL_STEPS);
     }
@@ -101,18 +106,19 @@ void updateLantern(Lantern* lantern, float elapsedTime) {
 
 void renderLantern(SDL_Renderer* renderer, const Lantern* lantern) {
     float cx = lantern->x, cy = lantern->y;
+    float depthScale = 1.0f / lantern->depth;   // <-- nuevo: factor de escala por profundidad
 
     Sint16 vx[BODY_POINT_COUNT], vy[BODY_POINT_COUNT];
     for (int i = 0; i < BODY_POINT_COUNT; i++) {
-        vx[i] = (Sint16)(cx + bodyOutline[i].x);
-        vy[i] = (Sint16)(cy + bodyOutline[i].y);
+        vx[i] = (Sint16)(cx + bodyOutline[i].x * depthScale);   // <-- se multiplica el offset
+        vy[i] = (Sint16)(cy + bodyOutline[i].y * depthScale);   // <-- por depthScale
     }
     filledPolygonRGBA(renderer, vx, vy, BODY_POINT_COUNT, 199, 32, 38, 255);
 
     Sint16 tcx[4], tcy[4], bcx[4], bcy[4];
     for (int i = 0; i < 4; i++) {
-        tcx[i] = (Sint16)(cx + topCap[i].x); tcy[i] = (Sint16)(cy + topCap[i].y);
-        bcx[i] = (Sint16)(cx + botCap[i].x); bcy[i] = (Sint16)(cy + botCap[i].y);
+        tcx[i] = (Sint16)(cx + topCap[i].x * depthScale); tcy[i] = (Sint16)(cy + topCap[i].y * depthScale);
+        bcx[i] = (Sint16)(cx + botCap[i].x * depthScale); bcy[i] = (Sint16)(cy + botCap[i].y * depthScale);
     }
     filledPolygonRGBA(renderer, tcx, tcy, 4, 226, 171, 60, 255);
     filledPolygonRGBA(renderer, bcx, bcy, 4, 226, 171, 60, 255);
@@ -120,23 +126,23 @@ void renderLantern(SDL_Renderer* renderer, const Lantern* lantern) {
     for (int r = 0; r < RIB_COUNT; r++)
         for (int s = 0; s < RIB_STEPS; s++)
             thickLineRGBA(renderer,
-                (Sint16)(cx+ribPoints[r][s].x),   (Sint16)(cy+ribPoints[r][s].y),
-                (Sint16)(cx+ribPoints[r][s+1].x), (Sint16)(cy+ribPoints[r][s+1].y),
+                (Sint16)(cx + ribPoints[r][s].x   * depthScale), (Sint16)(cy + ribPoints[r][s].y   * depthScale),
+                (Sint16)(cx + ribPoints[r][s+1].x * depthScale), (Sint16)(cy + ribPoints[r][s+1].y * depthScale),
                 2, 150, 18, 20, 255);
 
-    thickLineRGBA(renderer, (Sint16)(cx+stringTop.x), (Sint16)(cy+stringTop.y),
-                             (Sint16)(cx+stringBottom.x), (Sint16)(cy+stringBottom.y),
+    thickLineRGBA(renderer, (Sint16)(cx + stringTop.x    * depthScale), (Sint16)(cy + stringTop.y    * depthScale),
+                             (Sint16)(cx + stringBottom.x * depthScale), (Sint16)(cy + stringBottom.y * depthScale),
                              2, 176, 120, 28, 255);
-    circleRGBA(renderer, (Sint16)(cx+ringCenter.x), (Sint16)(cy+ringCenter.y),
-               (Sint16)ringRadius, 176, 120, 28, 255);
+    circleRGBA(renderer, (Sint16)(cx + ringCenter.x * depthScale), (Sint16)(cy + ringCenter.y * depthScale),
+               (Sint16)(ringRadius * depthScale), 176, 120, 28, 255);   // <-- el radio tambien escala
 
-    filledCircleRGBA(renderer, (Sint16)(cx+knotCenter.x), (Sint16)(cy+knotCenter.y),
-                      (Sint16)knotRadius, 176, 120, 28, 255);
+    filledCircleRGBA(renderer, (Sint16)(cx + knotCenter.x * depthScale), (Sint16)(cy + knotCenter.y * depthScale),
+                      (Sint16)(knotRadius * depthScale), 176, 120, 28, 255);   // <-- idem
 
     for (int t = 0; t < TASSEL_COUNT; t++)
         for (int s = 0; s < TASSEL_STEPS; s++)
             thickLineRGBA(renderer,
-                (Sint16)(cx+tasselPoints[t][s].x),   (Sint16)(cy+tasselPoints[t][s].y),
-                (Sint16)(cx+tasselPoints[t][s+1].x), (Sint16)(cy+tasselPoints[t][s+1].y),
+                (Sint16)(cx + tasselPoints[t][s].x   * depthScale), (Sint16)(cy + tasselPoints[t][s].y   * depthScale),
+                (Sint16)(cx + tasselPoints[t][s+1].x * depthScale), (Sint16)(cy + tasselPoints[t][s+1].y * depthScale),
                 1, 226, 171, 60, 255);
 }

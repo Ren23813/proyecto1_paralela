@@ -11,8 +11,8 @@
 #define WINDOW_HEIGHT 650
 
 // --- Reparto proporcional del N total entre los 3 tipos ---
-#define RATIO_DRAGONS   0.40f   // este porcentaje de N = total de SEGMENTOS de cuerpo de dragon
-#define RATIO_FIREWORKS 0.45f
+#define RATIO_DRAGONS   0.45f   // este porcentaje de N = total de SEGMENTOS de cuerpo de dragon
+#define RATIO_FIREWORKS 0.40f
 #define RATIO_LANTERNS  0.15f
 
 // --- Constantes de diseno de cada tipo (no son "N", son detalles fijos) ---
@@ -24,6 +24,16 @@
 #define DRAGON_SPEED             110.0f
 
 #define PARTICLES_PER_FIREWORK   40
+
+
+typedef enum { ELEM_LANTERN, ELEM_FIREWORK, ELEM_DRAGON } ElemType;
+typedef struct { ElemType type; int index; float depth; } RenderEntry;
+
+static int compareByDepthDesc(const void* a, const void* b) {
+    float da = ((const RenderEntry*)a)->depth;
+    float db = ((const RenderEntry*)b)->depth;
+    return (da < db) - (da > db); // descendente: lejos primero, cerca al final
+}
 
 int main(int argc, char* argv[]) {
 
@@ -96,13 +106,14 @@ int main(int argc, char* argv[]) {
 
     // Lamparas
     for (int i = 0; i < numLanterns; i++) {
-        lanterns[i].baseX = 60 + (rand() % (WINDOW_WIDTH - 120));
+        lanterns[i].baseX = 30 + (rand() % (WINDOW_WIDTH - 120));
         lanterns[i].baseY = 80 + (rand() % (WINDOW_HEIGHT - 300));
-        lanterns[i].amplitudeX = 15 + (rand() % 20);
-        lanterns[i].amplitudeY = 8 + (rand() % 12);
+        lanterns[i].amplitudeX = 8 + (rand() % 20);
+        lanterns[i].amplitudeY = 40 + (rand() % 12);
         lanterns[i].frequency = 0.5f + (rand() % 100) / 100.0f;
         lanterns[i].phase = (rand() % 628) / 100.0f;
         lanterns[i].driftY = 0.0f;
+        lanterns[i].depth = 0.6f + (rand() % 100) / 100.0f;  // rango 0.6-1.6
         lanterns[i].x = lanterns[i].baseX;
         lanterns[i].y = lanterns[i].baseY;
     }
@@ -150,6 +161,16 @@ int main(int argc, char* argv[]) {
     int running = 1;
     SDL_Event event;
     char title[160];
+    
+
+
+   int totalElems = numDragons + numFireworks + numLanterns;
+   RenderEntry* renderOrder = malloc(totalElems * sizeof(RenderEntry));
+   int idx = 0;
+   for (int i = 0; i < numDragons; i++)   renderOrder[idx++] = (RenderEntry){ ELEM_DRAGON,   i, dragons[i].depth };
+   for (int i = 0; i < numFireworks; i++) renderOrder[idx++] = (RenderEntry){ ELEM_FIREWORK, i, fireworks[i].depth };
+   for (int i = 0; i < numLanterns; i++)  renderOrder[idx++] = (RenderEntry){ ELEM_LANTERN,  i, lanterns[i].depth };
+   qsort(renderOrder, totalElems, sizeof(RenderEntry), compareByDepthDesc);
 
     while (running) {
         while (SDL_PollEvent(&event)) {
@@ -174,18 +195,17 @@ int main(int argc, char* argv[]) {
             updateLantern(&lanterns[i], elapsedTime);
 
         // --- RENDER ---
-        SDL_SetRenderDrawColor(renderer, 10, 10, 40, 255);
+        SDL_SetRenderDrawColor(renderer, 12, 12, 30, 255);
         SDL_RenderClear(renderer);
 
-        for (int i = 0; i < numLanterns; i++)
-            renderLantern(renderer, &lanterns[i]);
-
-        for (int i = 0; i < numFireworks; i++)
-            renderFirework(renderer, &fireworks[i], particles);
-
-        for (int i = 0; i < numDragons; i++)
-            renderDragon(renderer, &dragons[i], HEAD_SCALE, BODY_HALF_WIDTH, BODY_HALF_HEIGHT);
-
+        for (int i = 0; i < totalElems; i++) {
+            RenderEntry* e = &renderOrder[i];
+            switch (e->type) {
+                case ELEM_LANTERN:  renderLantern(renderer, &lanterns[e->index]); break;
+                case ELEM_FIREWORK: renderFirework(renderer, &fireworks[e->index], particles); break;
+                case ELEM_DRAGON:   renderDragon(renderer, &dragons[e->index], HEAD_SCALE, BODY_HALF_WIDTH, BODY_HALF_HEIGHT); break;
+            }
+        }
         SDL_RenderPresent(renderer);
 
         // --- FPS ---
@@ -208,6 +228,7 @@ int main(int argc, char* argv[]) {
     free(fireworks);
     free(particles);
     free(lanterns);
+    free(renderOrder);
 
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);

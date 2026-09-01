@@ -2,8 +2,10 @@
 //
 // Cabeza de dragon: una funcion por cada tipo de figura (circulo/ovalo,
 // rectangulo redondeado, gota, estrella, linea ondulada, palito con rama)
-// y drawDragonHeadArt() que las combina, EXACTAMENTE en las coordenadas
-// originales del prototipo (nada de esto cambia con la animacion).
+// y drawDragonHeadArtColor()/drawDragonHeadArtFixed() que las combinan en
+// dos capas (una tenible con el color del dragon, otra fija en negro/
+// blanco/marron), EXACTAMENTE en las coordenadas originales del
+// prototipo (nada de esto cambia con la animacion).
 //
 // Para poder mover/rotar/escalar/espejar la cabeza sin reescribir cada
 // funcion de dibujo (que no soportan rotacion arbitraria), la dibujamos
@@ -14,6 +16,18 @@
 #include <math.h>
 #include <stdlib.h>
 #include "dragon.h"
+
+// Los 4 colores "oficiales" del dragon (rojo, azul, amarillo, verde).
+// Cada dragon nuevo toma el siguiente color de la lista (initDragon), y
+// las 3 estrellas del estallido usan los OTROS 3 colores que le sobran
+// a ese color de piel (ensureHeadTextures / renderDragonHead).
+static const float DRAGON_PALETTE[4][3] = {
+    { 214.0f,  32.0f,  38.0f }, // 0: rojo
+    {  60.0f,  92.0f, 150.0f }, // 1: azul
+    { 231.0f, 190.0f,  40.0f }, // 2: amarillo
+    { 142.0f, 181.0f,  62.0f }, // 3: verde
+};
+#define DRAGON_PALETTE_SIZE 4
 
 /* ===================================================================
  *  PRIMITIVAS GENERICAS (rellenar circulo, poligono, rectangulo, etc.)
@@ -194,7 +208,7 @@ static void draw_stick(SDL_Renderer* ren, int x0, int y0, double angleDeg, int l
  * centro del rombo; halfWidth/halfHeight son las semi-diagonales;
  * angle_deg lo orienta (pensado para el campo `angle` de un Segment).
  *
- * Independiente de la cabeza: no se llama desde drawDragonHeadArt. */
+ * Independiente de la cabeza: no se llama desde drawDragonHeadArtColor/Fixed. */
 static void fill_diamond_gradient(SDL_Renderer* ren, int cx, int cy,
                                    double halfWidth, double halfHeight,
                                    double angle_deg,
@@ -266,39 +280,60 @@ void renderDragonBodySegment(SDL_Renderer* renderer, const Segment* seg,
  *  SIN TOCAR -- esto es exactamente lo que ya te habia quedado bien)
  * =================================================================== */
 
-static void drawDragonHeadArt(SDL_Renderer* renderer) {
-    SDL_Color red      = { 214, 32, 38, 255 };
-    SDL_Color darkRed  = { 150, 18, 20, 255 };
+/* --- CAPA DE PIEL: hocico, cabeza, nariz y orejas (todo lo que antes era
+ * "rojo"). Se dibuja en tonos de GRIS/BLANCO puro (no en rojo) para que
+ * SDL_SetTextureColorMod pueda teñirlo de verdad con cualquiera de los 4
+ * colores del dragon: multiplicar un pixel blanco (255,255,255) por el
+ * tinte (r,g,b) da exactamente (r,g,b); en cambio multiplicar un pixel ya
+ * rojo (214,32,38) por un tinte azul solo puede oscurecer el rojo, nunca
+ * volverlo azul. */
+static void drawDragonHeadArtSkin(SDL_Renderer* renderer) {
+    SDL_Color full = { 255, 255, 255, 255 }; // se vuelve el color pleno del dragon
+    SDL_Color dark = { 178, 178, 178, 255 }; // ~70% del color del dragon (interior oreja)
+
+    /* --- Cuerpo principal: hocico + cabeza (rectangulos redondeados) --- */
+    fill_rounded_rect(renderer, 220,  275, 400, 125, 30, full);  /* hocico alargado */
+    fill_rounded_rect(renderer, 500, 200, 175, 200, 30, full);   /* bloque de la cabeza */
+
+    /* nariz */
+    fill_ellipse(renderer, 265, 275, 38, 50, 50, full);
+
+    /* --- oreja --- */
+    draw_teardrop(renderer, 680, 220, 55, 50, full);
+    /* --- interior oreja (mas oscuro, como antes) --- */
+    draw_teardrop(renderer, 690, 220, 30, 50, dark);
+}
+
+/* --- CAPA DE ESTRELLAS (la "melena"/estallido detras de la cabeza): NO se
+ * tine en tiempo real. Como solo hay 4 colores posibles de piel, se
+ * "hornean" 4 variantes distintas (una por color de piel) en
+ * ensureHeadTextures(): cada variante usa los OTROS 3 colores de la
+ * paleta que le sobran a ese color de piel, uno por anillo. Por eso esta
+ * funcion recibe los 3 colores ya resueltos en vez de calcularlos. */
+static void drawDragonHeadArtStars(SDL_Renderer* renderer,
+                                    SDL_Color outer, SDL_Color mid, SDL_Color inner) {
+    draw_star(renderer, 700, 300, 170, 140, 12, 0,  outer);
+    draw_star(renderer, 700, 300, 110,  85,  8,  20, mid);
+    draw_star(renderer, 700, 300, 85,  65,  8,  0, inner);
+}
+
+/* --- CAPA FIJA: ojo, dientes, fosa nasal, boca y cuerno. Estos SIEMPRE
+ * se dibujan con su color real y nunca reciben SDL_SetTextureColorMod
+ * (o se les aplica un mod neutro 255,255,255), por eso el negro y el
+ * blanco no se alteran sin importar el color que le toque al dragon. */
+static void drawDragonHeadArtFixed(SDL_Renderer* renderer) {
     SDL_Color black    = { 20, 18, 16, 255 };
     SDL_Color white    = { 245, 245, 240, 255 };
     SDL_Color brown    = { 120, 72, 24, 255 };
-    SDL_Color blue     = { 60, 92, 150, 255 };
-    SDL_Color green    = { 142, 181, 62, 255 };
-    SDL_Color yellow   = { 231, 190, 40, 255 };
 
-    /* --- Estallido / estrellas detras de la cabeza --- */
-    draw_star(renderer, 700, 300, 170, 140, 12, 0,  blue);
-    draw_star(renderer, 700, 300, 110,  85,  8,  20, green);
-    draw_star(renderer, 700, 300, 85,  65,  8,  0, yellow);
-
-    /* --- Cuerpo principal: hocico + cabeza (rectangulos redondeados) --- */
-    fill_rounded_rect(renderer, 220,  275, 400, 125, 30, red);   /* hocico alargado */
-    fill_rounded_rect(renderer, 500, 200, 175, 200, 30, red);    /* bloque de la cabeza */
     fill_rounded_rect(renderer, 220,  320, 280, 50, 20, white);  /* boca */
 
     /* --- Dientes en zigzag a lo largo de la boca --- */
     draw_wavy_line(renderer, 220, 350, 500, 350, 13, 50, 2, black);
-    /* nariz roja */
-    fill_ellipse(renderer, 265, 275, 38, 50, 50, red);
     /* fosa nasal */
     fill_ellipse(renderer, 275, 285, 10, 16, 40, black);
     /* --- Ojo --- */
     fill_ellipse(renderer, 580, 270, 20, 35, 70, black);
-
-    /* --- oreja --- */
-    draw_teardrop(renderer, 680, 220, 55, 50, red);
-    /* --- interior oreja --- */
-    draw_teardrop(renderer, 690, 220, 30, 50, darkRed);
     /* --- Cuernito tipo ramita en la parte de arriba de la cabeza --- */
     draw_stick(renderer, 640, 208, -110, 70, 8, brown);
 }
@@ -320,35 +355,90 @@ static void drawDragonHeadArt(SDL_Renderer* renderer) {
 #define NECK_ANCHOR_X 700.0f
 #define NECK_ANCHOR_Y 300.0f
 
-static SDL_Texture* s_headTexNormal = NULL; // mirando a la izquierda (dibujo original)
-static SDL_Texture* s_headTexMirror = NULL; // la misma, espejada horizontalmente
+// Capa "de piel" (hocico, cabeza, nariz, orejas): se tine con
+// SDL_SetTextureColorMod segun el color de cada dragon.
+static SDL_Texture* s_headTexNormalSkin = NULL;
+static SDL_Texture* s_headTexMirrorSkin = NULL;
+// Capa "de estrellas" (melena/estallido): 4 variantes horneadas, una por
+// cada posible color de piel del dragon (indice 0..3 = DRAGON_PALETTE).
+// Nunca se tine: cada variante ya trae los 3 colores reales que le
+// sobran a ese color de piel.
+static SDL_Texture* s_headTexNormalStars[DRAGON_PALETTE_SIZE] = { NULL };
+static SDL_Texture* s_headTexMirrorStars[DRAGON_PALETTE_SIZE] = { NULL };
+// Capa "fija" (ojo, dientes, boca, fosa nasal, cuerno): jamas se tine.
+static SDL_Texture* s_headTexNormalFixed = NULL;
+static SDL_Texture* s_headTexMirrorFixed = NULL;
 
-static void ensureHeadTextures(SDL_Renderer* renderer) {
-    if (s_headTexNormal) return;
-
-    SDL_Texture* prevTarget = SDL_GetRenderTarget(renderer);
-
-    s_headTexNormal = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888,
-                                         SDL_TEXTUREACCESS_TARGET, HEAD_TEX_W, HEAD_TEX_H);
-    SDL_SetTextureBlendMode(s_headTexNormal, SDL_BLENDMODE_BLEND);
-    SDL_SetRenderTarget(renderer, s_headTexNormal);
+static SDL_Texture* makeHeadLayerTexture(SDL_Renderer* renderer, void (*drawFn)(SDL_Renderer*)) {
+    SDL_Texture* tex = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888,
+                                          SDL_TEXTUREACCESS_TARGET, HEAD_TEX_W, HEAD_TEX_H);
+    SDL_SetTextureBlendMode(tex, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderTarget(renderer, tex);
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
     SDL_RenderClear(renderer);
-    drawDragonHeadArt(renderer);
+    drawFn(renderer);
+    return tex;
+}
 
-    s_headTexMirror = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888,
-                                         SDL_TEXTUREACCESS_TARGET, HEAD_TEX_W, HEAD_TEX_H);
-    SDL_SetTextureBlendMode(s_headTexMirror, SDL_BLENDMODE_BLEND);
-    SDL_SetRenderTarget(renderer, s_headTexMirror);
+// Igual que makeHeadLayerTexture, pero para la capa de estrellas, que
+// necesita 3 colores concretos (no una funcion sin argumentos).
+static SDL_Texture* makeStarsLayerTexture(SDL_Renderer* renderer,
+                                           SDL_Color outer, SDL_Color mid, SDL_Color inner) {
+    SDL_Texture* tex = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888,
+                                          SDL_TEXTUREACCESS_TARGET, HEAD_TEX_W, HEAD_TEX_H);
+    SDL_SetTextureBlendMode(tex, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderTarget(renderer, tex);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+    SDL_RenderClear(renderer);
+    drawDragonHeadArtStars(renderer, outer, mid, inner);
+    return tex;
+}
+
+static SDL_Texture* makeMirroredTexture(SDL_Renderer* renderer, SDL_Texture* source) {
+    SDL_Texture* tex = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888,
+                                          SDL_TEXTUREACCESS_TARGET, HEAD_TEX_W, HEAD_TEX_H);
+    SDL_SetTextureBlendMode(tex, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderTarget(renderer, tex);
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
     SDL_RenderClear(renderer);
     SDL_Rect full = { 0, 0, HEAD_TEX_W, HEAD_TEX_H };
-    SDL_RenderCopyEx(renderer, s_headTexNormal, NULL, &full, 0.0, NULL, SDL_FLIP_HORIZONTAL);
+    SDL_RenderCopyEx(renderer, source, NULL, &full, 0.0, NULL, SDL_FLIP_HORIZONTAL);
+    return tex;
+}
+
+static void ensureHeadTextures(SDL_Renderer* renderer) {
+    if (s_headTexNormalSkin) return;
+
+    SDL_Texture* prevTarget = SDL_GetRenderTarget(renderer);
+
+    s_headTexNormalSkin  = makeHeadLayerTexture(renderer, drawDragonHeadArtSkin);
+    s_headTexNormalFixed = makeHeadLayerTexture(renderer, drawDragonHeadArtFixed);
+    s_headTexMirrorSkin  = makeMirroredTexture(renderer, s_headTexNormalSkin);
+    s_headTexMirrorFixed = makeMirroredTexture(renderer, s_headTexNormalFixed);
+
+    // Por cada posible color de piel, la melena usa los OTROS 3 colores
+    // de la paleta (en el orden en que aparecen, saltandose el propio).
+    for (int skinIdx = 0; skinIdx < DRAGON_PALETTE_SIZE; skinIdx++) {
+        SDL_Color otherColors[DRAGON_PALETTE_SIZE - 1];
+        int n = 0;
+        for (int j = 0; j < DRAGON_PALETTE_SIZE; j++) {
+            if (j == skinIdx) continue;
+            otherColors[n].r = (Uint8)DRAGON_PALETTE[j][0];
+            otherColors[n].g = (Uint8)DRAGON_PALETTE[j][1];
+            otherColors[n].b = (Uint8)DRAGON_PALETTE[j][2];
+            otherColors[n].a = 255;
+            n++;
+        }
+        s_headTexNormalStars[skinIdx] = makeStarsLayerTexture(renderer,
+                                             otherColors[0], otherColors[1], otherColors[2]);
+        s_headTexMirrorStars[skinIdx] = makeMirroredTexture(renderer, s_headTexNormalStars[skinIdx]);
+    }
 
     SDL_SetRenderTarget(renderer, prevTarget);
 }
 
-void renderDragonHead(SDL_Renderer* renderer, float x, float y, float scale, float angleDeg, Uint8 r, Uint8 g, Uint8 b) {
+void renderDragonHead(SDL_Renderer* renderer, float x, float y, float scale, float angleDeg,
+                       Uint8 r, Uint8 g, Uint8 b, int colorIndex) {
     ensureHeadTextures(renderer);
 
     // Normalizar el angulo a (-180, 180]
@@ -377,9 +467,18 @@ void renderDragonHead(SDL_Renderer* renderer, float x, float y, float scale, flo
     }
     float anchorLocalY = NECK_ANCHOR_Y;
 
-    SDL_Texture* tex = facingRight ? s_headTexMirror : s_headTexNormal;
+    SDL_Texture* starsTex = facingRight ? s_headTexMirrorStars[colorIndex] : s_headTexNormalStars[colorIndex];
+    SDL_Texture* skinTex  = facingRight ? s_headTexMirrorSkin : s_headTexNormalSkin;
+    SDL_Texture* fixedTex = facingRight ? s_headTexMirrorFixed : s_headTexNormalFixed;
 
-    SDL_SetTextureColorMod(tex, r, g, b);
+    // Solo la piel recibe el tinte del dragon (hocico, cabeza, nariz,
+    // orejas). Las estrellas ya vienen "horneadas" con sus 3 colores
+    // reales (los que le sobran a este color de piel) y la capa fija
+    // (ojo, dientes, boca, cuerno) se deja en 255,255,255 = sin tinte,
+    // para que negro y blanco no cambien.
+    SDL_SetTextureColorMod(skinTex, r, g, b);
+    SDL_SetTextureColorMod(starsTex, 255, 255, 255);
+    SDL_SetTextureColorMod(fixedTex, 255, 255, 255);
 
     SDL_FRect dst;
     dst.w = HEAD_TEX_W * scale;
@@ -393,7 +492,11 @@ void renderDragonHead(SDL_Renderer* renderer, float x, float y, float scale, flo
     // que (x, y) -- donde arranca el cuerpo -- no se mueva al girar.
     SDL_FPoint center = { anchorLocalX * scale, anchorLocalY * scale };
 
-    SDL_RenderCopyExF(renderer, tex, NULL, &dst, artAngle, &center, SDL_FLIP_NONE);
+    // Orden: estrellas al fondo, piel encima (tapa el centro del
+    // estallido), y la capa fija (ojo/dientes/boca/cuerno) hasta arriba.
+    SDL_RenderCopyExF(renderer, starsTex, NULL, &dst, artAngle, &center, SDL_FLIP_NONE);
+    SDL_RenderCopyExF(renderer, skinTex,  NULL, &dst, artAngle, &center, SDL_FLIP_NONE);
+    SDL_RenderCopyExF(renderer, fixedTex, NULL, &dst, artAngle, &center, SDL_FLIP_NONE);
 }
 
 /* ===================================================================
@@ -409,6 +512,9 @@ static float frand(float lo, float hi) {
     return lo + (hi - lo) * ((float)rand() / (float)RAND_MAX);
 }
 
+// Los 4 colores "oficiales" del dragon estan definidos al inicio del
+// archivo (DRAGON_PALETTE), junto con DRAGON_PALETTE_SIZE.
+
 static void pickNewTarget(Dragon* dragon, int windowW, int windowH) {
     float margin = DRAGON_EDGE_MARGIN + 20.0f;
     if (margin > windowW * 0.4f) margin = windowW * 0.4f;
@@ -423,12 +529,21 @@ void initDragon(Dragon* dragon, int numSegments, float segmentSpacing,
     dragon->segments = malloc(sizeof(Segment) * numSegments);
     dragon->numSegments = numSegments;
     dragon->speed = speed;
-    dragon->r = frand(120.0f, 255.0f);
-    dragon->g = frand(120.0f, 255.0f);
-    dragon->b = frand(120.0f, 255.0f);
+
+    // Color del dragon: se alterna entre los 4 colores oficiales de la
+    // paleta (rojo, azul, amarillo, verde) en vez de un tono aleatorio.
+    static int s_paletteIndex = 0;
+    int paletteIdx = s_paletteIndex % DRAGON_PALETTE_SIZE;
+    dragon->r = DRAGON_PALETTE[paletteIdx][0];
+    dragon->g = DRAGON_PALETTE[paletteIdx][1];
+    dragon->b = DRAGON_PALETTE[paletteIdx][2];
+    dragon->colorIndex = paletteIdx;
+    s_paletteIndex++;
+
     dragon->segmentSpacing = segmentSpacing;
     dragon->chainDistAccum = 0.0f;
     dragon->waveDist = 0.0f;
+    dragon->depth = frand(0.6f, 1.6f);
 
     float angle0 = frand(-180.0f, 180.0f);
     float rad0 = angle0 * (float)M_PI / 180.0f;
@@ -499,16 +614,15 @@ void updateDragon(Dragon* dragon, float dt, int windowW, int windowH) {
 }
 
 void renderDragon(SDL_Renderer* renderer, const Dragon* dragon,
-                   float headScale, float bodyHalfWidth, float bodyHalfHeight) {
-
+                    float headScale, float bodyHalfWidth, float bodyHalfHeight) {
     Uint8 r = (Uint8)dragon->r, g = (Uint8)dragon->g, b = (Uint8)dragon->b;
+    float depthScale = 1.0f / dragon->depth;   // <-- nuevo
 
-    // Cuerpo primero, de la cola hacia la cabeza, para que la cabeza
-    // quede dibujada arriba y tape la union con el primer segmento.
     for (int i = dragon->numSegments - 1; i >= 1; i--) {
-        renderDragonBodySegment(renderer, &dragon->segments[i], bodyHalfWidth, bodyHalfHeight, r,g,b);
+        renderDragonBodySegment(renderer, &dragon->segments[i],
+                                bodyHalfWidth * depthScale, bodyHalfHeight * depthScale, r,g,b);
     }
 
     const Segment* head = &dragon->segments[0];
-    renderDragonHead(renderer, head->x, head->y, headScale, head->angle, r, g, b);
+    renderDragonHead(renderer, head->x, head->y, headScale * depthScale, head->angle, r, g, b, dragon->colorIndex);
 }

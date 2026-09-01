@@ -15,9 +15,11 @@ typedef struct {
     float targetX, targetY;  // destino actual hacia donde vuela la cabeza
     float speed;
     float r, g, b;     
+    int colorIndex;
     float segmentSpacing;
     float chainDistAccum;        // color propio de este dragon
     float waveDist;               // distancia acumulada para la fase del serpenteo
+    float depth;   
 } Dragon;
 
 // FIREWORK  
@@ -36,6 +38,7 @@ typedef struct {
     int   particleStart;       // índice inicial en el pool global de particulas
     int   particleCount;       // cuántas particulas le pertenecen
     float cooldown;             // tiempo de espera en DEAD antes de reciclarse
+    float depth;   
 } Firework;
 
 
@@ -55,6 +58,7 @@ typedef struct {
     float phase;
     float driftY;
     float x, y;
+    float depth;   
 } Lantern;
 
 #endif
