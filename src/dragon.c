@@ -509,7 +509,12 @@ void renderDragonHead(SDL_Renderer* renderer, float x, float y, float scale, flo
 #define DRAGON_WAVE_WAVELENGTH    140.0f  // px que tarda en completarse un ciclo de onda
 
 static float frand(float lo, float hi) {
-    return lo + (hi - lo) * ((float)rand() / (float)RAND_MAX);
+    float r; 
+    #pragma omp critical(rng_lock)
+    {
+        r = lo + (hi - lo) * ((float)rand() / (float)RAND_MAX);
+    }
+    return r;
 }
 
 // Los 4 colores "oficiales" del dragon estan definidos al inicio del

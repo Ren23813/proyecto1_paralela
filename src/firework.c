@@ -12,7 +12,12 @@
 
 // aleatorio flotante entre lo y hi
 static float randRange(float lo, float hi) {
-    return lo + (hi - lo) * ((float)rand() / (float)RAND_MAX);
+    float r;
+    #pragma omp critical(rng_lock)
+    {
+        r = lo + (hi - lo) * ((float)rand() / (float)RAND_MAX);
+    }
+    return r;
 }
 
 // Reinicia un firework: nueva posición de lanzamiento, nuevo color, nuevo objetivo.

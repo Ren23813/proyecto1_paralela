@@ -58,3 +58,4 @@ dkms.conf
 ## para los compilados
 screensaver
 src/main_dragon
+screensaver_paralelo
