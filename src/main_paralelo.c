@@ -7,6 +7,7 @@
 #include "lantern.h"
 #include "firework.h"
 #include "dragon.h"
+#include "framebuffer.h"
 
 #define WINDOW_WIDTH  1920
 #define WINDOW_HEIGHT 1080
@@ -26,6 +27,20 @@
 
 #define PARTICLES_PER_FIREWORK   40
 
+// --- Bandas de render por hilo ---
+// Se reparte la pantalla en bandas horizontales de filas y cada hilo
+// dibuja UNA banda completa (todos los elementos, recortados a esa banda)
+// en el framebuffer. Como las bandas son disjuntas, dos hilos jamas
+// escriben el mismo pixel -> no hace falta ningun lock.
+//
+// Usamos mas bandas que hilos para poder usar schedule(dynamic): los
+// elementos no se reparten parejo en la pantalla (un dragon puede tener
+// hasta 15 rombos concentrados en una zona chica), asi que con bandas mas
+// finas, un hilo al que le toca una banda "vacia" termina rapido y agarra
+// la siguiente banda libre, en vez de quedar ocioso esperando a un hilo
+// al que le toco una banda cargada.
+#define BANDS_PER_THREAD 2 
+// 1-6.4 2-6.8 4-6 8-5.20 16-4
 
 typedef enum { ELEM_LANTERN, ELEM_FIREWORK, ELEM_DRAGON } ElemType;
 typedef struct { ElemType type; int index; float depth; } RenderEntry;
@@ -155,7 +170,33 @@ int main(int argc, char* argv[]) {
     }
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
+    // ================= FRAMEBUFFER =================
+    // Ver el comentario largo en main_secuencial.c: en vez de dibujar con
+    // llamadas de SDL_Renderer (no paralelizables, con mucho overhead por
+    // pixel), dibujamos sobre un arreglo de pixeles en RAM que se reparte
+    // en bandas de filas entre los hilos, y se sube a pantalla con una
+    // sola textura por frame.
+    FrameBuffer* fb = fbCreate(WINDOW_WIDTH, WINDOW_HEIGHT);
+    SDL_Texture* screenTex = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888,
+                                                SDL_TEXTUREACCESS_STREAMING,
+                                                WINDOW_WIDTH, WINDOW_HEIGHT);
+    if (!fb || !screenTex) {
+        fprintf(stderr, "Error al crear el framebuffer/textura de pantalla.\n");
+        if (fb) fbDestroy(fb);
+        if (screenTex) SDL_DestroyTexture(screenTex);
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(window);
+        free(dragons); free(fireworks); free(particles); free(lanterns);
+        SDL_Quit();
+        return 1;
+    }
+
     buildLanternTemplate();
+
+    int numBands = omp_get_max_threads() * BANDS_PER_THREAD;
+    if (numBands > WINDOW_HEIGHT) numBands = WINDOW_HEIGHT;
+    if (numBands < 1) numBands = 1;
+    int bandHeight = (WINDOW_HEIGHT + numBands - 1) / numBands;
 
     // ================= LOOP PRINCIPAL =================
     Uint32 startTicks = SDL_GetTicks();
@@ -192,10 +233,7 @@ int main(int argc, char* argv[]) {
         // por frame. "nowait" en los dos primeros porque los arreglos
         // (dragons, fireworks/particles, lanterns) son independientes entre
         // si -- no hace falta esperar a que termine uno para empezar el
-        // siguiente. schedule(dynamic) en dragones/fuegos porque la carga
-        // de trabajo varia por elemento (un dragon con 15 segmentos cuesta
-        // mas que uno con 2; un firework EXPLODED con particulas activas
-        // cuesta mas que uno esperando su cooldown).
+        // siguiente.
         #pragma omp parallel
         {
             #pragma omp for schedule(dynamic) nowait
@@ -211,18 +249,67 @@ int main(int argc, char* argv[]) {
                 updateLantern(&lanterns[i], elapsedTime);
         } // <- barrera implicita acá: se asegura que todo terminó antes de dibujar
 
-        // ================= RENDER (secuencial: SDL no es thread-safe) =================
-        SDL_SetRenderDrawColor(renderer, 12, 12, 30, 255);
-        SDL_RenderClear(renderer);
+        // ================= RENDER PARALELO (la parte que antes era 100%
+        // secuencial y dominaba el frame) =================
+        //
+        // Se reparte la pantalla en `numBands` bandas horizontales de
+        // filas. Cada banda es procesada por un hilo (schedule dynamic
+        // para balancear carga, ver comentario de BANDS_PER_THREAD). Dentro
+        // de una banda, un hilo:
+        //   1) limpia sus propias filas del framebuffer
+        //   2) recorre TODOS los elementos en el mismo orden ya ordenado
+        //      por profundidad (renderOrder) y dibuja solo la parte de
+        //      cada uno que cae dentro de su banda.
+        //
+        // Como las bandas son disjuntas (cada fila pertenece a un solo
+        // hilo), dos hilos JAMAS escriben el mismo pixel del framebuffer:
+        // no hace falta ningun lock ni seccion critica. Y como cada hilo
+        // procesa los elementos en el mismo orden global de profundidad,
+        // el "pintor" (atras hacia adelante) se sigue respetando bien
+        // dentro de cada banda -- el resultado visual es identico al de
+        // la version secuencial, solo que calculado en paralelo.
+        #pragma omp parallel for schedule(dynamic)
+        for (int band = 0; band < numBands; band++) {
+            int y0 = band * bandHeight;
+            int y1 = y0 + bandHeight;
+            if (y1 > WINDOW_HEIGHT) y1 = WINDOW_HEIGHT;
+            if (y0 >= y1) continue;
 
+            fbClearRows(fb, 12, 12, 30, y0, y1);
+            for (int i = 0; i < totalElems; i++) {
+                RenderEntry* e = &renderOrder[i];
+                switch (e->type) {
+                    case ELEM_LANTERN:
+                        renderLantern(fb, &lanterns[e->index], y0, y1);
+                        break;
+                    case ELEM_FIREWORK:
+                        renderFirework(fb, &fireworks[e->index], particles, y0, y1);
+                        break;
+                    case ELEM_DRAGON:
+                        renderDragonBody(fb, &dragons[e->index], BODY_HALF_WIDTH, BODY_HALF_HEIGHT, y0, y1);
+                        break;
+                }
+            }
+        } // <- barrera implicita: todas las bandas terminaron antes de subir la textura
+
+        // Subir el framebuffer completo a la pantalla de una sola vez.
+        SDL_UpdateTexture(screenTex, NULL, fb->pixels, WINDOW_WIDTH * (int)sizeof(Uint32));
+        SDL_RenderCopy(renderer, screenTex, NULL, NULL);
+
+        // Cabezas de dragon encima de todo: se quedan secuenciales y sobre
+        // el SDL_Renderer directamente (SDL no es thread-safe), pero ya
+        // eran baratas (textura + 3 blits por dragon) asi que no hace
+        // falta paralelizarlas.
         for (int i = 0; i < totalElems; i++) {
             RenderEntry* e = &renderOrder[i];
-            switch (e->type) {
-                case ELEM_LANTERN:  renderLantern(renderer, &lanterns[e->index]); break;
-                case ELEM_FIREWORK: renderFirework(renderer, &fireworks[e->index], particles); break;
-                case ELEM_DRAGON:   renderDragon(renderer, &dragons[e->index], HEAD_SCALE, BODY_HALF_WIDTH, BODY_HALF_HEIGHT); break;
-            }
+            if (e->type != ELEM_DRAGON) continue;
+            const Dragon* d = &dragons[e->index];
+            const Segment* head = &d->segments[0];
+            float depthScale = 1.0f / d->depth;
+            renderDragonHead(renderer, head->x, head->y, HEAD_SCALE * depthScale, head->angle,
+                              (Uint8)d->r, (Uint8)d->g, (Uint8)d->b, d->colorIndex);
         }
+
         SDL_RenderPresent(renderer);
 
         // --- FPS ---
@@ -246,6 +333,8 @@ int main(int argc, char* argv[]) {
     free(particles);
     free(lanterns);
     free(renderOrder);
+    fbDestroy(fb);
+    SDL_DestroyTexture(screenTex);
 
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);

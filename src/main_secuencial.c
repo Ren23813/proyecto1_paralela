@@ -6,6 +6,7 @@
 #include "lantern.h"
 #include "firework.h"
 #include "dragon.h"
+#include "framebuffer.h"
 
 #define WINDOW_WIDTH  1920
 #define WINDOW_HEIGHT 1080
@@ -152,6 +153,30 @@ int main(int argc, char* argv[]) {
     }
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
+    // ================= FRAMEBUFFER =================
+    // Todo lo que NO es la cabeza del dragon (rombos del cuerpo, fuegos
+    // artificiales, faroles) se dibuja "a mano" sobre este buffer de
+    // pixeles en RAM en vez de con llamadas de SDL_Renderer por pixel.
+    // Al final de cada frame se sube entero a una textura STREAMING con
+    // UNA sola llamada (SDL_UpdateTexture). Esto sigue corriendo 100% por
+    // CPU (la textura streaming de un renderer SOFTWARE tambien se
+    // compone por software), solo que sin el overhead de miles de
+    // llamadas SDL_SetRenderDrawColor+SDL_RenderDrawPoint por frame.
+    FrameBuffer* fb = fbCreate(WINDOW_WIDTH, WINDOW_HEIGHT);
+    SDL_Texture* screenTex = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888,
+                                                SDL_TEXTUREACCESS_STREAMING,
+                                                WINDOW_WIDTH, WINDOW_HEIGHT);
+    if (!fb || !screenTex) {
+        fprintf(stderr, "Error al crear el framebuffer/textura de pantalla.\n");
+        if (fb) fbDestroy(fb);
+        if (screenTex) SDL_DestroyTexture(screenTex);
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(window);
+        free(dragons); free(fireworks); free(particles); free(lanterns);
+        SDL_Quit();
+        return 1;
+    }
+
     buildLanternTemplate(); // una sola vez, antes del loop
 
     // ================= LOOP PRINCIPAL =================
@@ -184,7 +209,7 @@ int main(int argc, char* argv[]) {
         lastTicks = now;
         float elapsedTime = (now - startTicks) / 1000.0f;
 
-        // --- UPDATE (secuencial por ahora; esto es lo que paralelizaremos con OpenMP) ---
+        // --- UPDATE (secuencial) ---
         for (int i = 0; i < numDragons; i++)
             updateDragon(&dragons[i], dt, WINDOW_WIDTH, WINDOW_HEIGHT);
 
@@ -194,18 +219,50 @@ int main(int argc, char* argv[]) {
         for (int i = 0; i < numLanterns; i++)
             updateLantern(&lanterns[i], elapsedTime);
 
-        // --- RENDER ---
-        SDL_SetRenderDrawColor(renderer, 12, 12, 30, 255);
-        SDL_RenderClear(renderer);
-
+        // --- RENDER (secuencial) ---
+        // Paso 1: limpiar + dibujar cuerpos de dragon, fuegos y faroles en
+        // el framebuffer. En esta version es UNA sola "banda" que cubre
+        // toda la pantalla (sin recorte real), para poder comparar
+        // limpiamente contra la version paralela: el algoritmo de dibujo
+        // es EXACTAMENTE el mismo en ambas, la unica diferencia real va a
+        // ser que la version paralela reparte este mismo trabajo entre
+        // varios hilos.
+        fbClearRows(fb, 12, 12, 30, 0, WINDOW_HEIGHT);
         for (int i = 0; i < totalElems; i++) {
             RenderEntry* e = &renderOrder[i];
             switch (e->type) {
-                case ELEM_LANTERN:  renderLantern(renderer, &lanterns[e->index]); break;
-                case ELEM_FIREWORK: renderFirework(renderer, &fireworks[e->index], particles); break;
-                case ELEM_DRAGON:   renderDragon(renderer, &dragons[e->index], HEAD_SCALE, BODY_HALF_WIDTH, BODY_HALF_HEIGHT); break;
+                case ELEM_LANTERN:
+                    renderLantern(fb, &lanterns[e->index], 0, WINDOW_HEIGHT);
+                    break;
+                case ELEM_FIREWORK:
+                    renderFirework(fb, &fireworks[e->index], particles, 0, WINDOW_HEIGHT);
+                    break;
+                case ELEM_DRAGON:
+                    renderDragonBody(fb, &dragons[e->index], BODY_HALF_WIDTH, BODY_HALF_HEIGHT, 0, WINDOW_HEIGHT);
+                    break;
             }
         }
+
+        // Paso 2: subir el framebuffer completo a la textura de pantalla
+        // de una sola vez y dibujarla.
+        SDL_UpdateTexture(screenTex, NULL, fb->pixels, WINDOW_WIDTH * (int)sizeof(Uint32));
+        SDL_RenderCopy(renderer, screenTex, NULL, NULL);
+
+        // Paso 3: cabezas de dragon, encima de todo. Siguen siendo
+        // texturas + SDL_RenderCopyExF sobre el SDL_Renderer directamente
+        // (ya eran baratas, no hacia falta tocarlas). Se recorren en el
+        // mismo orden de profundidad (renderOrder) para que un dragon
+        // lejano no tape a uno cercano.
+        for (int i = 0; i < totalElems; i++) {
+            RenderEntry* e = &renderOrder[i];
+            if (e->type != ELEM_DRAGON) continue;
+            const Dragon* d = &dragons[e->index];
+            const Segment* head = &d->segments[0];
+            float depthScale = 1.0f / d->depth;
+            renderDragonHead(renderer, head->x, head->y, HEAD_SCALE * depthScale, head->angle,
+                              (Uint8)d->r, (Uint8)d->g, (Uint8)d->b, d->colorIndex);
+        }
+
         SDL_RenderPresent(renderer);
 
         // --- FPS ---
@@ -229,6 +286,8 @@ int main(int argc, char* argv[]) {
     free(particles);
     free(lanterns);
     free(renderOrder);
+    fbDestroy(fb);
+    SDL_DestroyTexture(screenTex);
 
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);

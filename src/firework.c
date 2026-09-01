@@ -1,7 +1,5 @@
-
 #include <stdlib.h>
 #include <math.h>
-#include <SDL2/SDL2_gfxPrimitives.h>
 #include "firework.h"
 
 #define GRAVITY 60.0f          // aceleración hacia abajo de las particulas
@@ -118,23 +116,29 @@ void updateFirework(Firework* fw, Particle* particles, float dt,
     }
 }
 
-void renderFirework(SDL_Renderer* renderer, const Firework* fw, const Particle* particles) {
+// Antes usaba SDL2_gfxPrimitives (filledCircleRGBA / thickLineRGBA), que
+// llaman a SDL_Renderer por dentro. Ahora dibuja directo sobre el
+// framebuffer, recortado a la banda [yStart, yEnd), asi se puede llamar en
+// paralelo por bandas junto con dragones y faroles.
+void renderFirework(FrameBuffer* fb, const Firework* fw, const Particle* particles,
+                     int yStart, int yEnd) {
     float depthScale = 1.0f / fw->depth;
     if (fw->state == FIREWORK_RISING) {
-        filledCircleRGBA(renderer, (Sint16)fw->x, (Sint16)fw->y, (Sint16)(3 * depthScale),
-                        (Uint8)fw->r, (Uint8)fw->g, (Uint8)fw->b, 255);
-        thickLineRGBA(renderer, (Sint16)fw->x, (Sint16)fw->y,
-                    (Sint16)fw->x, (Sint16)(fw->y + 12 * depthScale),
-                    (Uint8)(2 * depthScale) > 0 ? (Uint8)(2 * depthScale) : 1,
-                    (Uint8)fw->r, (Uint8)fw->g, (Uint8)fw->b, 150);
+        fbFillCircle(fb, (int)fw->x, (int)fw->y, (int)(3 * depthScale),
+                     (Uint8)fw->r, (Uint8)fw->g, (Uint8)fw->b, 255, yStart, yEnd);
+
+        int thickness = (int)(2 * depthScale);
+        if (thickness < 1) thickness = 1;
+        fbThickLine(fb, fw->x, fw->y, fw->x, fw->y + 12 * depthScale,
+                    thickness, (Uint8)fw->r, (Uint8)fw->g, (Uint8)fw->b, 150, yStart, yEnd);
     }
     else if (fw->state == FIREWORK_EXPLODED) {
         for (int i = 0; i < fw->particleCount; i++) {
             const Particle* p = &particles[fw->particleStart + i];
             if (!p->active) continue;
             Uint8 alpha = (Uint8)(p->life * 255);
-            filledCircleRGBA(renderer, (Sint16)p->x, (Sint16)p->y, (Sint16)(2 * depthScale),
-                            (Uint8)fw->r, (Uint8)fw->g, (Uint8)fw->b, alpha);
+            fbFillCircle(fb, (int)p->x, (int)p->y, (int)(2 * depthScale),
+                         (Uint8)fw->r, (Uint8)fw->g, (Uint8)fw->b, alpha, yStart, yEnd);
         }
     }
 }

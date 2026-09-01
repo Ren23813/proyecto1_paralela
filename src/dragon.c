@@ -11,7 +11,9 @@
 // funcion de dibujo (que no soportan rotacion arbitraria), la dibujamos
 // UNA sola vez a una textura, y despues usamos SDL_RenderCopyEx para
 // posicionarla/rotarla/escalarla en cada frame. Ver ensureHeadTextures()
-// y renderDragonHead() mas abajo.
+// y renderDragonHead() mas abajo. Todo esto se queda IGUAL: la cabeza ya
+// era barata (una textura + 3 blits por frame), el cuello de botella
+// estaba en el CUERPO (ver renderDragonBodySegment mas abajo).
 
 #include <math.h>
 #include <stdlib.h>
@@ -31,6 +33,9 @@ static const float DRAGON_PALETTE[4][3] = {
 
 /* ===================================================================
  *  PRIMITIVAS GENERICAS (rellenar circulo, poligono, rectangulo, etc.)
+ *  -- SOLO se usan para "hornear" las texturas de la cabeza UNA vez
+ *  (ensureHeadTextures). No corren por frame, asi que no hace falta
+ *  tocarlas.
  * =================================================================== */
 
 /* Poligono relleno generico (scanline), usado por triangulo, estrella y gota */
@@ -202,77 +207,28 @@ static void draw_stick(SDL_Renderer* ren, int x0, int y0, double angleDeg, int l
     thick_line(ren, bx, by, bx2, by2, thickness * 0.7, col);
 }
 
-/* Rombo (diamante) relleno con degradado horizontal en espacio LOCAL:
- * de colorLeft (borde izquierdo, x local = -halfWidth) a colorRight
- * (borde derecho, x local = +halfWidth), antes de rotar. cx,cy es el
- * centro del rombo; halfWidth/halfHeight son las semi-diagonales;
- * angle_deg lo orienta (pensado para el campo `angle` de un Segment).
- *
- * Independiente de la cabeza: no se llama desde drawDragonHeadArtColor/Fixed. */
-static void fill_diamond_gradient(SDL_Renderer* ren, int cx, int cy,
-                                   double halfWidth, double halfHeight,
-                                   double angle_deg,
-                                   SDL_Color colorLeft, SDL_Color colorRight) {
-    double rad = angle_deg * M_PI / 180.0;
-    double cos_a = cos(rad),  sin_a = sin(rad);
-    double cos_ai = cos(-rad), sin_ai = sin(-rad); // rotacion inversa (para el degradado)
-
-    double localX[4] = { 0.0,  halfWidth, 0.0, -halfWidth };
-    double localY[4] = { -halfHeight, 0.0, halfHeight, 0.0 };
-
-    SDL_Point pts[4];
-    int miny = INT32_MAX, maxy = INT32_MIN;
-    for (int i = 0; i < 4; i++) {
-        double wx = localX[i] * cos_a - localY[i] * sin_a;
-        double wy = localX[i] * sin_a + localY[i] * cos_a;
-        pts[i].x = (int)round(cx + wx);
-        pts[i].y = (int)round(cy + wy);
-        if (pts[i].y < miny) miny = pts[i].y;
-        if (pts[i].y > maxy) maxy = pts[i].y;
-    }
-
-    for (int y = miny; y <= maxy; y++) {
-        double yc = y + 0.5;
-        double xs[2];
-        int count = 0;
-        for (int i = 0; i < 4 && count < 2; i++) {
-            SDL_Point a = pts[i], b = pts[(i + 1) % 4];
-            if ((a.y <= yc && b.y > yc) || (b.y <= yc && a.y > yc)) {
-                double t = (yc - a.y) / (double)(b.y - a.y);
-                xs[count++] = a.x + t * (b.x - a.x);
-            }
-        }
-        if (count < 2) continue;
-        if (xs[0] > xs[1]) { double tmp = xs[0]; xs[0] = xs[1]; xs[1] = tmp; }
-
-        int xa = (int)ceil(xs[0] - 0.5), xb = (int)floor(xs[1] - 0.5);
-        for (int x = xa; x <= xb; x++) {
-            double dx = x - cx, dy = y - cy;
-            double lx = dx * cos_ai - dy * sin_ai;
-            double f = (lx + halfWidth) / (2.0 * halfWidth);
-            if (f < 0) f = 0; else if (f > 1) f = 1;
-
-            Uint8 r = (Uint8)(colorLeft.r + (colorRight.r - colorLeft.r) * f);
-            Uint8 g = (Uint8)(colorLeft.g + (colorRight.g - colorLeft.g) * f);
-            Uint8 b = (Uint8)(colorLeft.b + (colorRight.b - colorLeft.b) * f);
-            Uint8 a = (Uint8)(colorLeft.a + (colorRight.a - colorLeft.a) * f);
-
-            SDL_SetRenderDrawColor(ren, r, g, b, a);
-            SDL_RenderDrawPoint(ren, x, y);
-        }
-    }
-}
-
-void renderDragonBodySegment(SDL_Renderer* renderer, const Segment* seg,
+/* ===================================================================
+ *  CUERPO DEL DRAGON: rombo con degradado, dibujado DIRECTO sobre el
+ *  FrameBuffer (no sobre SDL_Renderer). Esta es la pieza que antes hacia
+ *  SDL_SetRenderDrawColor + SDL_RenderDrawPoint por cada pixel del rombo
+ *  -- con hasta 45% de N repartido en dragones (hasta 15 rombos cada
+ *  uno), esto era por lejos la parte mas cara del frame, y encima
+ *  100% secuencial. Ahora fbFillDiamondGradient (en framebuffer.c) hace
+ *  el mismo scanline fill pero escribiendo directo a un arreglo en RAM,
+ *  recortado a [yStart, yEnd) -- lo que permite llamarlo en paralelo por
+ *  bandas de filas sin ningun lock.
+ * =================================================================== */
+void renderDragonBodySegment(FrameBuffer* fb, const Segment* seg,
                               double halfWidth, double halfHeight,
-                              Uint8 r, Uint8 g, Uint8 b) {
-    SDL_Color light = { r, g, b, 255 };
+                              Uint8 r, Uint8 g, Uint8 b, int yStart, int yEnd) {
     // Mismo factor de oscurecimiento que tenian los colores fijos originales
     // (140/214 ~= 0.65), asi que el degradado se ve igual de "tallado".
-    SDL_Color dark  = { (Uint8)(r * 0.65f), (Uint8)(g * 0.65f), (Uint8)(b * 0.65f), 255 };
-    fill_diamond_gradient(renderer, (int)seg->x, (int)seg->y,
+    Uint8 lr = (Uint8)(r * 0.65f), lg = (Uint8)(g * 0.65f), lb = (Uint8)(b * 0.65f);
+    fbFillDiamondGradient(fb, (int)seg->x, (int)seg->y,
                            halfWidth, halfHeight, seg->angle,
-                           dark, light);
+                           lr, lg, lb,   // borde izquierdo (oscuro)
+                           r,  g,  b,    // borde derecho (color propio, claro)
+                           yStart, yEnd);
 }
 
 /* ===================================================================
@@ -509,7 +465,7 @@ void renderDragonHead(SDL_Renderer* renderer, float x, float y, float scale, flo
 #define DRAGON_WAVE_WAVELENGTH    140.0f  // px que tarda en completarse un ciclo de onda
 
 static float frand(float lo, float hi) {
-    float r; 
+    float r;
     #pragma omp critical(rng_lock)
     {
         r = lo + (hi - lo) * ((float)rand() / (float)RAND_MAX);
@@ -618,16 +574,17 @@ void updateDragon(Dragon* dragon, float dt, int windowW, int windowH) {
     }
 }
 
-void renderDragon(SDL_Renderer* renderer, const Dragon* dragon,
-                    float headScale, float bodyHalfWidth, float bodyHalfHeight) {
+// Dibuja todos los rombos del cuerpo (todo salvo la cabeza) directo al
+// framebuffer, recortado a la banda [yStart, yEnd). No toca SDL_Renderer
+// para nada -- se puede llamar en paralelo, una banda por hilo.
+void renderDragonBody(FrameBuffer* fb, const Dragon* dragon,
+                       double bodyHalfWidth, double bodyHalfHeight, int yStart, int yEnd) {
     Uint8 r = (Uint8)dragon->r, g = (Uint8)dragon->g, b = (Uint8)dragon->b;
-    float depthScale = 1.0f / dragon->depth;   // <-- nuevo
+    float depthScale = 1.0f / dragon->depth;
 
     for (int i = dragon->numSegments - 1; i >= 1; i--) {
-        renderDragonBodySegment(renderer, &dragon->segments[i],
-                                bodyHalfWidth * depthScale, bodyHalfHeight * depthScale, r,g,b);
+        renderDragonBodySegment(fb, &dragon->segments[i],
+                                 bodyHalfWidth * depthScale, bodyHalfHeight * depthScale,
+                                 r, g, b, yStart, yEnd);
     }
-
-    const Segment* head = &dragon->segments[0];
-    renderDragonHead(renderer, head->x, head->y, headScale * depthScale, head->angle, r, g, b, dragon->colorIndex);
 }

@@ -1,5 +1,4 @@
 #include <math.h>
-#include <SDL2/SDL2_gfxPrimitives.h>
 #include "lantern.h"
 
 #define LANTERN_SCALE 0.12f
@@ -104,45 +103,50 @@ void updateLantern(Lantern* lantern, float elapsedTime) {
                  - lantern->driftY * elapsedTime;
 }
 
-void renderLantern(SDL_Renderer* renderer, const Lantern* lantern) {
+// Antes usaba SDL2_gfxPrimitives (filledPolygonRGBA / thickLineRGBA /
+// circleRGBA / filledCircleRGBA). Ahora todo se dibuja directo sobre el
+// framebuffer, recortado a la banda [yStart, yEnd), para poder llamarlo en
+// paralelo por bandas junto con dragones y fuegos artificiales.
+void renderLantern(FrameBuffer* fb, const Lantern* lantern, int yStart, int yEnd) {
     float cx = lantern->x, cy = lantern->y;
-    float depthScale = 1.0f / lantern->depth;   // <-- nuevo: factor de escala por profundidad
+    float depthScale = 1.0f / lantern->depth;
 
-    Sint16 vx[BODY_POINT_COUNT], vy[BODY_POINT_COUNT];
+    SDL_Point body[BODY_POINT_COUNT];
     for (int i = 0; i < BODY_POINT_COUNT; i++) {
-        vx[i] = (Sint16)(cx + bodyOutline[i].x * depthScale);   // <-- se multiplica el offset
-        vy[i] = (Sint16)(cy + bodyOutline[i].y * depthScale);   // <-- por depthScale
+        body[i].x = (int)(cx + bodyOutline[i].x * depthScale);
+        body[i].y = (int)(cy + bodyOutline[i].y * depthScale);
     }
-    filledPolygonRGBA(renderer, vx, vy, BODY_POINT_COUNT, 199, 32, 38, 255);
+    fbFillPolygon(fb, body, BODY_POINT_COUNT, 199, 32, 38, 255, yStart, yEnd);
 
-    Sint16 tcx[4], tcy[4], bcx[4], bcy[4];
+    SDL_Point tcap[4], bcap[4];
     for (int i = 0; i < 4; i++) {
-        tcx[i] = (Sint16)(cx + topCap[i].x * depthScale); tcy[i] = (Sint16)(cy + topCap[i].y * depthScale);
-        bcx[i] = (Sint16)(cx + botCap[i].x * depthScale); bcy[i] = (Sint16)(cy + botCap[i].y * depthScale);
+        tcap[i].x = (int)(cx + topCap[i].x * depthScale); tcap[i].y = (int)(cy + topCap[i].y * depthScale);
+        bcap[i].x = (int)(cx + botCap[i].x * depthScale); bcap[i].y = (int)(cy + botCap[i].y * depthScale);
     }
-    filledPolygonRGBA(renderer, tcx, tcy, 4, 226, 171, 60, 255);
-    filledPolygonRGBA(renderer, bcx, bcy, 4, 226, 171, 60, 255);
+    fbFillPolygon(fb, tcap, 4, 226, 171, 60, 255, yStart, yEnd);
+    fbFillPolygon(fb, bcap, 4, 226, 171, 60, 255, yStart, yEnd);
 
     for (int r = 0; r < RIB_COUNT; r++)
         for (int s = 0; s < RIB_STEPS; s++)
-            thickLineRGBA(renderer,
-                (Sint16)(cx + ribPoints[r][s].x   * depthScale), (Sint16)(cy + ribPoints[r][s].y   * depthScale),
-                (Sint16)(cx + ribPoints[r][s+1].x * depthScale), (Sint16)(cy + ribPoints[r][s+1].y * depthScale),
-                2, 150, 18, 20, 255);
+            fbThickLine(fb,
+                cx + ribPoints[r][s].x   * depthScale, cy + ribPoints[r][s].y   * depthScale,
+                cx + ribPoints[r][s+1].x * depthScale, cy + ribPoints[r][s+1].y * depthScale,
+                2, 150, 18, 20, 255, yStart, yEnd);
 
-    thickLineRGBA(renderer, (Sint16)(cx + stringTop.x    * depthScale), (Sint16)(cy + stringTop.y    * depthScale),
-                             (Sint16)(cx + stringBottom.x * depthScale), (Sint16)(cy + stringBottom.y * depthScale),
-                             2, 176, 120, 28, 255);
-    circleRGBA(renderer, (Sint16)(cx + ringCenter.x * depthScale), (Sint16)(cy + ringCenter.y * depthScale),
-               (Sint16)(ringRadius * depthScale), 176, 120, 28, 255);   // <-- el radio tambien escala
+    fbThickLine(fb, cx + stringTop.x * depthScale, cy + stringTop.y * depthScale,
+                    cx + stringBottom.x * depthScale, cy + stringBottom.y * depthScale,
+                    2, 176, 120, 28, 255, yStart, yEnd);
 
-    filledCircleRGBA(renderer, (Sint16)(cx + knotCenter.x * depthScale), (Sint16)(cy + knotCenter.y * depthScale),
-                      (Sint16)(knotRadius * depthScale), 176, 120, 28, 255);   // <-- idem
+    fbCircleOutline(fb, (int)(cx + ringCenter.x * depthScale), (int)(cy + ringCenter.y * depthScale),
+                     (int)(ringRadius * depthScale), 176, 120, 28, 255, yStart, yEnd);
+
+    fbFillCircle(fb, (int)(cx + knotCenter.x * depthScale), (int)(cy + knotCenter.y * depthScale),
+                 (int)(knotRadius * depthScale), 176, 120, 28, 255, yStart, yEnd);
 
     for (int t = 0; t < TASSEL_COUNT; t++)
         for (int s = 0; s < TASSEL_STEPS; s++)
-            thickLineRGBA(renderer,
-                (Sint16)(cx + tasselPoints[t][s].x   * depthScale), (Sint16)(cy + tasselPoints[t][s].y   * depthScale),
-                (Sint16)(cx + tasselPoints[t][s+1].x * depthScale), (Sint16)(cy + tasselPoints[t][s+1].y * depthScale),
-                1, 226, 171, 60, 255);
+            fbThickLine(fb,
+                cx + tasselPoints[t][s].x   * depthScale, cy + tasselPoints[t][s].y   * depthScale,
+                cx + tasselPoints[t][s+1].x * depthScale, cy + tasselPoints[t][s+1].y * depthScale,
+                1, 226, 171, 60, 255, yStart, yEnd);
 }
