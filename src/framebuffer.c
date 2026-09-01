@@ -186,3 +186,70 @@ void fbFillDiamondGradient(FrameBuffer* fb, int cx, int cy,
         }
     }
 }
+
+void fbBlitRotatedTinted(FrameBuffer* fb, const Uint32* src, int srcW, int srcH,
+                          double anchorSrcX, double anchorSrcY,
+                          double dstX, double dstY, double scale, double angleDeg,
+                          Uint8 tintR, Uint8 tintG, Uint8 tintB,
+                          int yStart, int yEnd) {
+    if (scale <= 0.0) return;
+    double rad = angleDeg * M_PI / 180.0;
+    double cosA = cos(rad), sinA = sin(rad);
+    // rotacion inversa = mismo coseno, seno con signo opuesto
+    double cosInv = cosA, sinInv = -sinA;
+
+    double pivotX = anchorSrcX * scale;
+    double pivotY = anchorSrcY * scale;
+
+    // Las 4 esquinas de la imagen (sin escalar) llevadas a espacio de
+    // pantalla, para acotar el rectangulo que hay que recorrer en vez de
+    // barrer toda la banda.
+    double corners[4][2] = { {0,0}, {(double)srcW,0}, {(double)srcW,(double)srcH}, {0,(double)srcH} };
+    double minX = corners[0][0], maxX = corners[0][0], minY = corners[0][1], maxY = corners[0][1];
+    for (int i = 0; i < 4; i++) {
+        double lx = corners[i][0] * scale - pivotX;
+        double ly = corners[i][1] * scale - pivotY;
+        double wx = lx * cosA - ly * sinA + dstX;
+        double wy = lx * sinA + ly * cosA + dstY;
+        if (i == 0) { minX = maxX = wx; minY = maxY = wy; }
+        if (wx < minX) minX = wx;
+        if (wx > maxX) maxX = wx;
+        if (wy < minY) minY = wy;
+        if (wy > maxY) maxY = wy;
+    }
+
+    int x0 = (int)floor(minX), x1 = (int)ceil(maxX);
+    int y0 = (int)floor(minY), y1 = (int)ceil(maxY);
+    if (y0 < yStart) y0 = yStart;
+    if (y1 > yEnd - 1) y1 = yEnd - 1;
+    if (x0 < 0) x0 = 0;
+    if (x1 > fb->width - 1) x1 = fb->width - 1;
+    if (y0 > y1 || x0 > x1) return;
+
+    int noTint = (tintR == 255 && tintG == 255 && tintB == 255);
+
+    for (int y = y0; y <= y1; y++) {
+        double syr = y - dstY;
+        for (int x = x0; x <= x1; x++) {
+            double sxr = x - dstX;
+            // Rotacion inversa + deshacer el pivote/escala para volver a
+            // coordenadas de la imagen original.
+            double lx = sxr * cosInv - syr * sinInv;
+            double ly = sxr * sinInv + syr * cosInv;
+            int sx = (int)((lx + pivotX) / scale);
+            int sy = (int)((ly + pivotY) / scale);
+            if (sx < 0 || sx >= srcW || sy < 0 || sy >= srcH) continue;
+
+            Uint32 texel = src[(size_t)sy * srcW + sx];
+            Uint8 tr, tg, tb, ta;
+            fbUnpackRGBA8888(texel, &tr, &tg, &tb, &ta);
+            if (ta == 0) continue;
+            if (!noTint) {
+                tr = (Uint8)(((int)tr * tintR) / 255);
+                tg = (Uint8)(((int)tg * tintG) / 255);
+                tb = (Uint8)(((int)tb * tintB) / 255);
+            }
+            fbBlendPixel(fb, x, y, tr, tg, tb, ta);
+        }
+    }
+}

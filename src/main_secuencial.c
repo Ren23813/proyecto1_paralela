@@ -177,7 +177,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    buildLanternTemplate(); // una sola vez, antes del loop
+    buildLanternTemplate();       // una sola vez, antes del loop
+    initDragonHeadArt(renderer);  // idem: hornea el arte de la cabeza a RAM
 
     // ================= LOOP PRINCIPAL =================
     Uint32 startTicks = SDL_GetTicks();
@@ -220,13 +221,18 @@ int main(int argc, char* argv[]) {
             updateLantern(&lanterns[i], elapsedTime);
 
         // --- RENDER (secuencial) ---
-        // Paso 1: limpiar + dibujar cuerpos de dragon, fuegos y faroles en
-        // el framebuffer. En esta version es UNA sola "banda" que cubre
+        // Limpiar + dibujar TODO (cuerpo y cabeza de cada dragon, fuegos y
+        // faroles) en el framebuffer, en el mismo orden de profundidad
+        // (renderOrder). En esta version es UNA sola "banda" que cubre
         // toda la pantalla (sin recorte real), para poder comparar
         // limpiamente contra la version paralela: el algoritmo de dibujo
         // es EXACTAMENTE el mismo en ambas, la unica diferencia real va a
         // ser que la version paralela reparte este mismo trabajo entre
-        // varios hilos.
+        // varios hilos. Como la cabeza ya no depende de SDL_Renderer,
+        // entra en esta misma pasada -- ya no hace falta una pasada
+        // aparte por encima de todo, asi que la cabeza de cada dragon
+        // queda correctamente intercalada por profundidad con fuegos y
+        // faroles.
         fbClearRows(fb, 12, 12, 30, 0, WINDOW_HEIGHT);
         for (int i = 0; i < totalElems; i++) {
             RenderEntry* e = &renderOrder[i];
@@ -238,30 +244,17 @@ int main(int argc, char* argv[]) {
                     renderFirework(fb, &fireworks[e->index], particles, 0, WINDOW_HEIGHT);
                     break;
                 case ELEM_DRAGON:
-                    renderDragonBody(fb, &dragons[e->index], BODY_HALF_WIDTH, BODY_HALF_HEIGHT, 0, WINDOW_HEIGHT);
+                    renderDragon(fb, &dragons[e->index], HEAD_SCALE, BODY_HALF_WIDTH, BODY_HALF_HEIGHT,
+                                 0, WINDOW_HEIGHT);
                     break;
             }
         }
 
-        // Paso 2: subir el framebuffer completo a la textura de pantalla
-        // de una sola vez y dibujarla.
+        // Subir el framebuffer completo a la textura de pantalla de una
+        // sola vez y dibujarla -- ya no hace falta ningun paso aparte
+        // despues de esto.
         SDL_UpdateTexture(screenTex, NULL, fb->pixels, WINDOW_WIDTH * (int)sizeof(Uint32));
         SDL_RenderCopy(renderer, screenTex, NULL, NULL);
-
-        // Paso 3: cabezas de dragon, encima de todo. Siguen siendo
-        // texturas + SDL_RenderCopyExF sobre el SDL_Renderer directamente
-        // (ya eran baratas, no hacia falta tocarlas). Se recorren en el
-        // mismo orden de profundidad (renderOrder) para que un dragon
-        // lejano no tape a uno cercano.
-        for (int i = 0; i < totalElems; i++) {
-            RenderEntry* e = &renderOrder[i];
-            if (e->type != ELEM_DRAGON) continue;
-            const Dragon* d = &dragons[e->index];
-            const Segment* head = &d->segments[0];
-            float depthScale = 1.0f / d->depth;
-            renderDragonHead(renderer, head->x, head->y, HEAD_SCALE * depthScale, head->angle,
-                              (Uint8)d->r, (Uint8)d->g, (Uint8)d->b, d->colorIndex);
-        }
 
         SDL_RenderPresent(renderer);
 

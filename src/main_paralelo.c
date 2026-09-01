@@ -39,8 +39,8 @@
 // finas, un hilo al que le toca una banda "vacia" termina rapido y agarra
 // la siguiente banda libre, en vez de quedar ocioso esperando a un hilo
 // al que le toco una banda cargada.
-#define BANDS_PER_THREAD 2 
-// 1-6.4 2-6.8 4-6 8-5.20 16-4
+#define BANDS_PER_THREAD 4
+
 
 typedef enum { ELEM_LANTERN, ELEM_FIREWORK, ELEM_DRAGON } ElemType;
 typedef struct { ElemType type; int index; float depth; } RenderEntry;
@@ -191,7 +191,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    buildLanternTemplate();
+    buildLanternTemplate();       // una sola vez, antes del loop
+    initDragonHeadArt(renderer);  // idem: hornea el arte de la cabeza a RAM
 
     int numBands = omp_get_max_threads() * BANDS_PER_THREAD;
     if (numBands > WINDOW_HEIGHT) numBands = WINDOW_HEIGHT;
@@ -259,7 +260,9 @@ int main(int argc, char* argv[]) {
         //   1) limpia sus propias filas del framebuffer
         //   2) recorre TODOS los elementos en el mismo orden ya ordenado
         //      por profundidad (renderOrder) y dibuja solo la parte de
-        //      cada uno que cae dentro de su banda.
+        //      cada uno que cae dentro de su banda -- cuerpo Y cabeza de
+        //      cada dragon incluidos, ya que ninguno de los dos depende
+        //      de SDL_Renderer.
         //
         // Como las bandas son disjuntas (cada fila pertenece a un solo
         // hilo), dos hilos JAMAS escriben el mismo pixel del framebuffer:
@@ -267,7 +270,8 @@ int main(int argc, char* argv[]) {
         // procesa los elementos en el mismo orden global de profundidad,
         // el "pintor" (atras hacia adelante) se sigue respetando bien
         // dentro de cada banda -- el resultado visual es identico al de
-        // la version secuencial, solo que calculado en paralelo.
+        // la version secuencial (cabeza incluida, en su lugar correcto de
+        // profundidad), solo que calculado en paralelo.
         #pragma omp parallel for schedule(dynamic)
         for (int band = 0; band < numBands; band++) {
             int y0 = band * bandHeight;
@@ -286,29 +290,17 @@ int main(int argc, char* argv[]) {
                         renderFirework(fb, &fireworks[e->index], particles, y0, y1);
                         break;
                     case ELEM_DRAGON:
-                        renderDragonBody(fb, &dragons[e->index], BODY_HALF_WIDTH, BODY_HALF_HEIGHT, y0, y1);
+                        renderDragon(fb, &dragons[e->index], HEAD_SCALE, BODY_HALF_WIDTH, BODY_HALF_HEIGHT,
+                                     y0, y1);
                         break;
                 }
             }
         } // <- barrera implicita: todas las bandas terminaron antes de subir la textura
 
-        // Subir el framebuffer completo a la pantalla de una sola vez.
+        // Subir el framebuffer completo a la pantalla de una sola vez --
+        // ya no hace falta ningun paso aparte despues de esto.
         SDL_UpdateTexture(screenTex, NULL, fb->pixels, WINDOW_WIDTH * (int)sizeof(Uint32));
         SDL_RenderCopy(renderer, screenTex, NULL, NULL);
-
-        // Cabezas de dragon encima de todo: se quedan secuenciales y sobre
-        // el SDL_Renderer directamente (SDL no es thread-safe), pero ya
-        // eran baratas (textura + 3 blits por dragon) asi que no hace
-        // falta paralelizarlas.
-        for (int i = 0; i < totalElems; i++) {
-            RenderEntry* e = &renderOrder[i];
-            if (e->type != ELEM_DRAGON) continue;
-            const Dragon* d = &dragons[e->index];
-            const Segment* head = &d->segments[0];
-            float depthScale = 1.0f / d->depth;
-            renderDragonHead(renderer, head->x, head->y, HEAD_SCALE * depthScale, head->angle,
-                              (Uint8)d->r, (Uint8)d->g, (Uint8)d->b, d->colorIndex);
-        }
 
         SDL_RenderPresent(renderer);
 

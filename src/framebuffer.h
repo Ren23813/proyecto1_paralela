@@ -96,4 +96,23 @@ void fbFillDiamondGradient(FrameBuffer* fb, int cx, int cy,
                             Uint8 rr, Uint8 rg, Uint8 rb,
                             int yStart, int yEnd);
 
+// Dibuja una imagen ya horneada en RAM (src, de srcW x srcH pixeles,
+// RGBA8888) rotada 'angleDeg' grados (sentido horario, igual que
+// SDL_RenderCopyEx) y escalada 'scale' veces, de forma que el punto
+// (anchorSrcX, anchorSrcY) de la imagen (en pixeles de la imagen SIN
+// escalar) caiga exactamente en (dstX, dstY) de la pantalla, pivoteando
+// la rotacion sobre ese mismo punto -- es el equivalente casero de
+// SDL_RenderCopyExF con un SDL_FPoint como centro. (tintR,tintG,tintB)
+// se multiplica contra cada pixel leido antes de mezclarlo (255,255,255
+// = sin tinte). Recortado a [yStart, yEnd), asi que se puede llamar en
+// paralelo por bandas igual que las demas primitivas. Usa muestreo de
+// vecino mas cercano (sin interpolar) -- es lo mismo que ya hacia
+// SDL_RenderCopyEx en el renderer software (no interpolaba a menos que
+// se pida explicitamente), asi que no cambia la calidad visual.
+void fbBlitRotatedTinted(FrameBuffer* fb, const Uint32* src, int srcW, int srcH,
+                          double anchorSrcX, double anchorSrcY,
+                          double dstX, double dstY, double scale, double angleDeg,
+                          Uint8 tintR, Uint8 tintG, Uint8 tintB,
+                          int yStart, int yEnd);
+
 #endif
