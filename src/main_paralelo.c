@@ -7,9 +7,13 @@
 #include "lantern.h"
 #include "firework.h"
 #include "dragon.h"
+#include <string.h>
 
 #define WINDOW_WIDTH  1920
 #define WINDOW_HEIGHT 1080
+
+#define BENCHMARK_FRAMES 500
+#define BENCHMARK_DT     0.016f   // dt fijo simulado (~60 fps), para que sea reproducible
 
 // --- Reparto proporcional del N total entre los 3 tipos ---
 #define RATIO_DRAGONS   0.45f
@@ -65,6 +69,12 @@ int main(int argc, char* argv[]) {
 
     srand((unsigned int)time(NULL));
 
+
+
+    int benchmarkMode = (argc >= 4 && strcmp(argv[3], "--benchmark") == 0);  // paralelo
+
+
+        
     // ================= REPARTO DE N =================
     int dragonBodyTotal = (int)(N * RATIO_DRAGONS);
     int numFireworks    = (int)(N * RATIO_FIREWORKS);
@@ -76,11 +86,17 @@ int main(int argc, char* argv[]) {
 
     int numDragons = (dragonBodyTotal + MAX_BODY_PER_DRAGON - 1) / MAX_BODY_PER_DRAGON;
 
-    printf("N total = %d\n", N);
-    printf("  Dragones: %d dragon(es), %d segmentos de cuerpo en total (max %d por dragon)\n",
-           numDragons, dragonBodyTotal, MAX_BODY_PER_DRAGON);
-    printf("  Fuegos artificiales: %d\n", numFireworks);
-    printf("  Lamparas: %d\n", numLanterns);
+    if (!benchmarkMode) {
+        printf("N total = %d\n", N);
+        printf("  Dragones: %d dragon(es), %d segmentos de cuerpo en total (max %d por dragon)\n",
+               numDragons, dragonBodyTotal, MAX_BODY_PER_DRAGON);
+        printf("  Fuegos artificiales: %d\n", numFireworks);
+        printf("  Lamparas: %d\n", numLanterns);
+    }
+
+    if (!benchmarkMode) {
+            printf("OpenMP: usando hasta %d hilo(s)\n", omp_get_max_threads());
+        }
 
     // ================= RESERVA DE MEMORIA =================
     Dragon* dragons = malloc(numDragons * sizeof(Dragon));
@@ -123,6 +139,46 @@ int main(int argc, char* argv[]) {
         lanterns[i].x = lanterns[i].baseX;
         lanterns[i].y = lanterns[i].baseY;
     }
+
+
+    // ================= MODO BENCHMARK (sin ventana, mide solo el update) =================
+    // int benchmarkMode = (argc >= 4 && strcmp(argv[3], "--benchmark") == 0);
+
+    if (benchmarkMode) {
+        double startTime = omp_get_wtime();
+
+        for (int frame = 0; frame < BENCHMARK_FRAMES; frame++) {
+            float elapsedTime = frame * BENCHMARK_DT;
+
+            #pragma omp parallel
+            {
+                #pragma omp for schedule(dynamic) nowait
+                for (int i = 0; i < numDragons; i++)
+                    updateDragon(&dragons[i], BENCHMARK_DT, WINDOW_WIDTH, WINDOW_HEIGHT);
+
+                #pragma omp for schedule(dynamic) nowait
+                for (int i = 0; i < numFireworks; i++)
+                    updateFirework(&fireworks[i], particles, BENCHMARK_DT, WINDOW_WIDTH, WINDOW_HEIGHT);
+
+                #pragma omp for schedule(static)
+                for (int i = 0; i < numLanterns; i++)
+                    updateLantern(&lanterns[i], elapsedTime);
+            }
+        }
+
+        double totalTime = omp_get_wtime() - startTime;
+
+        // Salida en formato CSV: facil de parsear desde el script bash
+        // version,N,hilos,frames,tiempo_total_seg,tiempo_promedio_por_frame_ms
+        printf("paralelo,%d,%d,%d,%.6f,%.6f\n",
+               N, omp_get_max_threads(), BENCHMARK_FRAMES,
+               totalTime, (totalTime / BENCHMARK_FRAMES) * 1000.0);
+
+        for (int i = 0; i < numDragons; i++) freeDragon(&dragons[i]);
+        free(dragons); free(fireworks); free(particles); free(lanterns);
+        return 0;
+    }
+
 
     // ================= VENTANA SDL =================
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {

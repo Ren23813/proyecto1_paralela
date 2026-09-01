@@ -1,0 +1,391 @@
+version,N,hilos,frames,tiempo_total_seg,tiempo_promedio_frame_ms,repeticion
+secuencial,50,1,500,0.000503,0.001006,1
+secuencial,50,1,500,0.000633,0.001266,2
+secuencial,50,1,500,0.000475,0.000950,3
+secuencial,100,1,500,0.000866,0.001732,1
+secuencial,100,1,500,0.000863,0.001726,2
+secuencial,100,1,500,0.000930,0.001860,3
+secuencial,200,1,500,0.001995,0.003990,1
+secuencial,200,1,500,0.001999,0.003998,2
+secuencial,200,1,500,0.001979,0.003958,3
+secuencial,400,1,500,0.003938,0.007876,1
+secuencial,400,1,500,0.003871,0.007742,2
+secuencial,400,1,500,0.003869,0.007738,3
+secuencial,800,1,500,0.007963,0.015926,1
+secuencial,800,1,500,0.008306,0.016612,2
+secuencial,800,1,500,0.008311,0.016622,3
+secuencial,1600,1,500,0.017716,0.035432,1
+secuencial,1600,1,500,0.016929,0.033858,2
+secuencial,1600,1,500,0.016611,0.033222,3
+secuencial,3200,1,500,0.036441,0.072882,1
+secuencial,3200,1,500,0.035122,0.070244,2
+secuencial,3200,1,500,0.034501,0.069002,3
+secuencial,6400,1,500,0.072639,0.145278,1
+secuencial,6400,1,500,0.072845,0.145690,2
+secuencial,6400,1,500,0.076572,0.153144,3
+secuencial,12800,1,500,0.165811,0.331622,1
+secuencial,12800,1,500,0.161069,0.322138,2
+secuencial,12800,1,500,0.153102,0.306204,3
+secuencial,25600,1,500,0.328212,0.656424,1
+secuencial,25600,1,500,0.332534,0.665068,2
+secuencial,25600,1,500,0.315244,0.630488,3
+OpenMP: usando hasta 1 hilo(s)
+paralelo,50,1,500,0.000796,0.001593,1
+OpenMP: usando hasta 1 hilo(s)
+paralelo,50,1,500,0.000794,0.001589,2
+OpenMP: usando hasta 1 hilo(s)
+paralelo,50,1,500,0.000771,0.001542,3
+OpenMP: usando hasta 2 hilo(s)
+paralelo,50,2,500,0.001067,0.002133,1
+OpenMP: usando hasta 2 hilo(s)
+paralelo,50,2,500,0.001034,0.002068,2
+OpenMP: usando hasta 2 hilo(s)
+paralelo,50,2,500,0.001219,0.002438,3
+OpenMP: usando hasta 4 hilo(s)
+paralelo,50,4,500,0.001612,0.003224,1
+OpenMP: usando hasta 4 hilo(s)
+paralelo,50,4,500,0.001507,0.003014,2
+OpenMP: usando hasta 4 hilo(s)
+paralelo,50,4,500,0.001470,0.002940,3
+OpenMP: usando hasta 8 hilo(s)
+paralelo,50,8,500,0.001963,0.003926,1
+OpenMP: usando hasta 8 hilo(s)
+paralelo,50,8,500,0.002807,0.005613,2
+OpenMP: usando hasta 8 hilo(s)
+paralelo,50,8,500,0.002182,0.004365,3
+OpenMP: usando hasta 16 hilo(s)
+paralelo,50,16,500,0.003565,0.007130,1
+OpenMP: usando hasta 16 hilo(s)
+paralelo,50,16,500,0.003547,0.007094,2
+OpenMP: usando hasta 16 hilo(s)
+paralelo,50,16,500,0.004994,0.009988,3
+OpenMP: usando hasta 24 hilo(s)
+paralelo,50,24,500,0.010249,0.020498,1
+OpenMP: usando hasta 24 hilo(s)
+paralelo,50,24,500,0.009770,0.019541,2
+OpenMP: usando hasta 24 hilo(s)
+paralelo,50,24,500,0.004771,0.009542,3
+OpenMP: usando hasta 1 hilo(s)
+paralelo,100,1,500,0.001382,0.002765,1
+OpenMP: usando hasta 1 hilo(s)
+paralelo,100,1,500,0.001368,0.002736,2
+OpenMP: usando hasta 1 hilo(s)
+paralelo,100,1,500,0.001408,0.002815,3
+OpenMP: usando hasta 2 hilo(s)
+paralelo,100,2,500,0.001881,0.003761,1
+OpenMP: usando hasta 2 hilo(s)
+paralelo,100,2,500,0.002486,0.004973,2
+OpenMP: usando hasta 2 hilo(s)
+paralelo,100,2,500,0.001711,0.003421,3
+OpenMP: usando hasta 4 hilo(s)
+paralelo,100,4,500,0.001699,0.003398,1
+OpenMP: usando hasta 4 hilo(s)
+paralelo,100,4,500,0.001852,0.003705,2
+OpenMP: usando hasta 4 hilo(s)
+paralelo,100,4,500,0.001933,0.003867,3
+OpenMP: usando hasta 8 hilo(s)
+paralelo,100,8,500,0.002071,0.004143,1
+OpenMP: usando hasta 8 hilo(s)
+paralelo,100,8,500,0.002475,0.004950,2
+OpenMP: usando hasta 8 hilo(s)
+paralelo,100,8,500,0.002777,0.005553,3
+OpenMP: usando hasta 16 hilo(s)
+paralelo,100,16,500,0.003780,0.007560,1
+OpenMP: usando hasta 16 hilo(s)
+paralelo,100,16,500,0.003590,0.007181,2
+OpenMP: usando hasta 16 hilo(s)
+paralelo,100,16,500,0.003594,0.007188,3
+OpenMP: usando hasta 24 hilo(s)
+paralelo,100,24,500,0.007072,0.014143,1
+OpenMP: usando hasta 24 hilo(s)
+paralelo,100,24,500,0.010851,0.021703,2
+OpenMP: usando hasta 24 hilo(s)
+paralelo,100,24,500,0.010257,0.020513,3
+OpenMP: usando hasta 1 hilo(s)
+paralelo,200,1,500,0.003095,0.006190,1
+OpenMP: usando hasta 1 hilo(s)
+paralelo,200,1,500,0.003241,0.006481,2
+OpenMP: usando hasta 1 hilo(s)
+paralelo,200,1,500,0.003350,0.006699,3
+OpenMP: usando hasta 2 hilo(s)
+paralelo,200,2,500,0.003712,0.007424,1
+OpenMP: usando hasta 2 hilo(s)
+paralelo,200,2,500,0.003495,0.006990,2
+OpenMP: usando hasta 2 hilo(s)
+paralelo,200,2,500,0.003421,0.006843,3
+OpenMP: usando hasta 4 hilo(s)
+paralelo,200,4,500,0.003210,0.006421,1
+OpenMP: usando hasta 4 hilo(s)
+paralelo,200,4,500,0.002996,0.005993,2
+OpenMP: usando hasta 4 hilo(s)
+paralelo,200,4,500,0.003168,0.006337,3
+OpenMP: usando hasta 8 hilo(s)
+paralelo,200,8,500,0.003418,0.006836,1
+OpenMP: usando hasta 8 hilo(s)
+paralelo,200,8,500,0.003198,0.006396,2
+OpenMP: usando hasta 8 hilo(s)
+paralelo,200,8,500,0.003034,0.006067,3
+OpenMP: usando hasta 16 hilo(s)
+paralelo,200,16,500,0.006366,0.012732,1
+OpenMP: usando hasta 16 hilo(s)
+paralelo,200,16,500,0.005246,0.010492,2
+OpenMP: usando hasta 16 hilo(s)
+paralelo,200,16,500,0.005198,0.010397,3
+OpenMP: usando hasta 24 hilo(s)
+paralelo,200,24,500,0.010345,0.020689,1
+OpenMP: usando hasta 24 hilo(s)
+paralelo,200,24,500,0.011313,0.022625,2
+OpenMP: usando hasta 24 hilo(s)
+paralelo,200,24,500,0.010671,0.021342,3
+OpenMP: usando hasta 1 hilo(s)
+paralelo,400,1,500,0.005067,0.010134,1
+OpenMP: usando hasta 1 hilo(s)
+paralelo,400,1,500,0.005099,0.010198,2
+OpenMP: usando hasta 1 hilo(s)
+paralelo,400,1,500,0.005049,0.010097,3
+OpenMP: usando hasta 2 hilo(s)
+paralelo,400,2,500,0.004974,0.009947,1
+OpenMP: usando hasta 2 hilo(s)
+paralelo,400,2,500,0.005047,0.010094,2
+OpenMP: usando hasta 2 hilo(s)
+paralelo,400,2,500,0.005136,0.010271,3
+OpenMP: usando hasta 4 hilo(s)
+paralelo,400,4,500,0.004564,0.009128,1
+OpenMP: usando hasta 4 hilo(s)
+paralelo,400,4,500,0.004593,0.009187,2
+OpenMP: usando hasta 4 hilo(s)
+paralelo,400,4,500,0.005129,0.010258,3
+OpenMP: usando hasta 8 hilo(s)
+paralelo,400,8,500,0.005434,0.010868,1
+OpenMP: usando hasta 8 hilo(s)
+paralelo,400,8,500,0.006276,0.012553,2
+OpenMP: usando hasta 8 hilo(s)
+paralelo,400,8,500,0.005605,0.011210,3
+OpenMP: usando hasta 16 hilo(s)
+paralelo,400,16,500,0.008526,0.017051,1
+OpenMP: usando hasta 16 hilo(s)
+paralelo,400,16,500,0.008670,0.017340,2
+OpenMP: usando hasta 16 hilo(s)
+paralelo,400,16,500,0.007485,0.014971,3
+OpenMP: usando hasta 24 hilo(s)
+paralelo,400,24,500,0.012550,0.025101,1
+OpenMP: usando hasta 24 hilo(s)
+paralelo,400,24,500,0.012361,0.024721,2
+OpenMP: usando hasta 24 hilo(s)
+paralelo,400,24,500,0.013339,0.026678,3
+OpenMP: usando hasta 1 hilo(s)
+paralelo,800,1,500,0.012434,0.024869,1
+OpenMP: usando hasta 1 hilo(s)
+paralelo,800,1,500,0.011367,0.022733,2
+OpenMP: usando hasta 1 hilo(s)
+paralelo,800,1,500,0.011422,0.022843,3
+OpenMP: usando hasta 2 hilo(s)
+paralelo,800,2,500,0.011437,0.022874,1
+OpenMP: usando hasta 2 hilo(s)
+paralelo,800,2,500,0.010800,0.021599,2
+OpenMP: usando hasta 2 hilo(s)
+paralelo,800,2,500,0.010476,0.020952,3
+OpenMP: usando hasta 4 hilo(s)
+paralelo,800,4,500,0.008591,0.017181,1
+OpenMP: usando hasta 4 hilo(s)
+paralelo,800,4,500,0.008730,0.017460,2
+OpenMP: usando hasta 4 hilo(s)
+paralelo,800,4,500,0.009212,0.018425,3
+OpenMP: usando hasta 8 hilo(s)
+paralelo,800,8,500,0.009656,0.019312,1
+OpenMP: usando hasta 8 hilo(s)
+paralelo,800,8,500,0.010110,0.020219,2
+OpenMP: usando hasta 8 hilo(s)
+paralelo,800,8,500,0.008849,0.017697,3
+OpenMP: usando hasta 16 hilo(s)
+paralelo,800,16,500,0.014544,0.029088,1
+OpenMP: usando hasta 16 hilo(s)
+paralelo,800,16,500,0.011481,0.022962,2
+OpenMP: usando hasta 16 hilo(s)
+paralelo,800,16,500,0.010486,0.020972,3
+OpenMP: usando hasta 24 hilo(s)
+paralelo,800,24,500,0.015514,0.031029,1
+OpenMP: usando hasta 24 hilo(s)
+paralelo,800,24,500,0.025387,0.050775,2
+OpenMP: usando hasta 24 hilo(s)
+paralelo,800,24,500,0.015517,0.031033,3
+OpenMP: usando hasta 1 hilo(s)
+paralelo,1600,1,500,0.028040,0.056081,1
+OpenMP: usando hasta 1 hilo(s)
+paralelo,1600,1,500,0.028114,0.056229,2
+OpenMP: usando hasta 1 hilo(s)
+paralelo,1600,1,500,0.024533,0.049067,3
+OpenMP: usando hasta 2 hilo(s)
+paralelo,1600,2,500,0.020656,0.041313,1
+OpenMP: usando hasta 2 hilo(s)
+paralelo,1600,2,500,0.022047,0.044095,2
+OpenMP: usando hasta 2 hilo(s)
+paralelo,1600,2,500,0.022856,0.045712,3
+OpenMP: usando hasta 4 hilo(s)
+paralelo,1600,4,500,0.017679,0.035359,1
+OpenMP: usando hasta 4 hilo(s)
+paralelo,1600,4,500,0.017438,0.034876,2
+OpenMP: usando hasta 4 hilo(s)
+paralelo,1600,4,500,0.017482,0.034964,3
+OpenMP: usando hasta 8 hilo(s)
+paralelo,1600,8,500,0.016344,0.032688,1
+OpenMP: usando hasta 8 hilo(s)
+paralelo,1600,8,500,0.015989,0.031978,2
+OpenMP: usando hasta 8 hilo(s)
+paralelo,1600,8,500,0.015701,0.031401,3
+OpenMP: usando hasta 16 hilo(s)
+paralelo,1600,16,500,0.021015,0.042030,1
+OpenMP: usando hasta 16 hilo(s)
+paralelo,1600,16,500,0.020027,0.040054,2
+OpenMP: usando hasta 16 hilo(s)
+paralelo,1600,16,500,0.019380,0.038760,3
+OpenMP: usando hasta 24 hilo(s)
+paralelo,1600,24,500,0.023463,0.046925,1
+OpenMP: usando hasta 24 hilo(s)
+paralelo,1600,24,500,0.027397,0.054793,2
+OpenMP: usando hasta 24 hilo(s)
+paralelo,1600,24,500,0.025540,0.051080,3
+OpenMP: usando hasta 1 hilo(s)
+paralelo,3200,1,500,0.057704,0.115408,1
+OpenMP: usando hasta 1 hilo(s)
+paralelo,3200,1,500,0.048431,0.096862,2
+OpenMP: usando hasta 1 hilo(s)
+paralelo,3200,1,500,0.046425,0.092849,3
+OpenMP: usando hasta 2 hilo(s)
+paralelo,3200,2,500,0.041683,0.083366,1
+OpenMP: usando hasta 2 hilo(s)
+paralelo,3200,2,500,0.044121,0.088242,2
+OpenMP: usando hasta 2 hilo(s)
+paralelo,3200,2,500,0.041450,0.082901,3
+OpenMP: usando hasta 4 hilo(s)
+paralelo,3200,4,500,0.032663,0.065326,1
+OpenMP: usando hasta 4 hilo(s)
+paralelo,3200,4,500,0.033667,0.067333,2
+OpenMP: usando hasta 4 hilo(s)
+paralelo,3200,4,500,0.033087,0.066174,3
+OpenMP: usando hasta 8 hilo(s)
+paralelo,3200,8,500,0.031696,0.063393,1
+OpenMP: usando hasta 8 hilo(s)
+paralelo,3200,8,500,0.034995,0.069989,2
+OpenMP: usando hasta 8 hilo(s)
+paralelo,3200,8,500,0.033206,0.066412,3
+OpenMP: usando hasta 16 hilo(s)
+paralelo,3200,16,500,0.034764,0.069528,1
+OpenMP: usando hasta 16 hilo(s)
+paralelo,3200,16,500,0.033670,0.067340,2
+OpenMP: usando hasta 16 hilo(s)
+paralelo,3200,16,500,0.033401,0.066802,3
+OpenMP: usando hasta 24 hilo(s)
+paralelo,3200,24,500,0.046403,0.092805,1
+OpenMP: usando hasta 24 hilo(s)
+paralelo,3200,24,500,0.040645,0.081290,2
+OpenMP: usando hasta 24 hilo(s)
+paralelo,3200,24,500,0.045013,0.090027,3
+OpenMP: usando hasta 1 hilo(s)
+paralelo,6400,1,500,0.108634,0.217269,1
+OpenMP: usando hasta 1 hilo(s)
+paralelo,6400,1,500,0.097558,0.195115,2
+OpenMP: usando hasta 1 hilo(s)
+paralelo,6400,1,500,0.096423,0.192845,3
+OpenMP: usando hasta 2 hilo(s)
+paralelo,6400,2,500,0.084144,0.168287,1
+OpenMP: usando hasta 2 hilo(s)
+paralelo,6400,2,500,0.085136,0.170272,2
+OpenMP: usando hasta 2 hilo(s)
+paralelo,6400,2,500,0.081890,0.163780,3
+OpenMP: usando hasta 4 hilo(s)
+paralelo,6400,4,500,0.064085,0.128169,1
+OpenMP: usando hasta 4 hilo(s)
+paralelo,6400,4,500,0.064936,0.129872,2
+OpenMP: usando hasta 4 hilo(s)
+paralelo,6400,4,500,0.070049,0.140097,3
+OpenMP: usando hasta 8 hilo(s)
+paralelo,6400,8,500,0.060286,0.120573,1
+OpenMP: usando hasta 8 hilo(s)
+paralelo,6400,8,500,0.061268,0.122535,2
+OpenMP: usando hasta 8 hilo(s)
+paralelo,6400,8,500,0.059801,0.119602,3
+OpenMP: usando hasta 16 hilo(s)
+paralelo,6400,16,500,0.064063,0.128125,1
+OpenMP: usando hasta 16 hilo(s)
+paralelo,6400,16,500,0.069875,0.139750,2
+OpenMP: usando hasta 16 hilo(s)
+paralelo,6400,16,500,0.064663,0.129326,3
+OpenMP: usando hasta 24 hilo(s)
+paralelo,6400,24,500,0.098848,0.197697,1
+OpenMP: usando hasta 24 hilo(s)
+paralelo,6400,24,500,0.094666,0.189333,2
+OpenMP: usando hasta 24 hilo(s)
+paralelo,6400,24,500,0.127733,0.255465,3
+OpenMP: usando hasta 1 hilo(s)
+paralelo,12800,1,500,0.207514,0.415029,1
+OpenMP: usando hasta 1 hilo(s)
+paralelo,12800,1,500,0.212600,0.425200,2
+OpenMP: usando hasta 1 hilo(s)
+paralelo,12800,1,500,0.200070,0.400140,3
+OpenMP: usando hasta 2 hilo(s)
+paralelo,12800,2,500,0.171319,0.342638,1
+OpenMP: usando hasta 2 hilo(s)
+paralelo,12800,2,500,0.165733,0.331467,2
+OpenMP: usando hasta 2 hilo(s)
+paralelo,12800,2,500,0.165568,0.331136,3
+OpenMP: usando hasta 4 hilo(s)
+paralelo,12800,4,500,0.129841,0.259681,1
+OpenMP: usando hasta 4 hilo(s)
+paralelo,12800,4,500,0.130208,0.260416,2
+OpenMP: usando hasta 4 hilo(s)
+paralelo,12800,4,500,0.129895,0.259790,3
+OpenMP: usando hasta 8 hilo(s)
+paralelo,12800,8,500,0.113704,0.227408,1
+OpenMP: usando hasta 8 hilo(s)
+paralelo,12800,8,500,0.115671,0.231342,2
+OpenMP: usando hasta 8 hilo(s)
+paralelo,12800,8,500,0.117532,0.235064,3
+OpenMP: usando hasta 16 hilo(s)
+paralelo,12800,16,500,0.150388,0.300775,1
+OpenMP: usando hasta 16 hilo(s)
+paralelo,12800,16,500,0.137469,0.274939,2
+OpenMP: usando hasta 16 hilo(s)
+paralelo,12800,16,500,0.140291,0.280582,3
+OpenMP: usando hasta 24 hilo(s)
+paralelo,12800,24,500,0.236377,0.472754,1
+OpenMP: usando hasta 24 hilo(s)
+paralelo,12800,24,500,0.204922,0.409844,2
+OpenMP: usando hasta 24 hilo(s)
+paralelo,12800,24,500,0.192116,0.384231,3
+OpenMP: usando hasta 1 hilo(s)
+paralelo,25600,1,500,0.433051,0.866103,1
+OpenMP: usando hasta 1 hilo(s)
+paralelo,25600,1,500,0.398692,0.797384,2
+OpenMP: usando hasta 1 hilo(s)
+paralelo,25600,1,500,0.391234,0.782468,3
+OpenMP: usando hasta 2 hilo(s)
+paralelo,25600,2,500,0.331839,0.663679,1
+OpenMP: usando hasta 2 hilo(s)
+paralelo,25600,2,500,0.335574,0.671149,2
+OpenMP: usando hasta 2 hilo(s)
+paralelo,25600,2,500,0.338406,0.676812,3
+OpenMP: usando hasta 4 hilo(s)
+paralelo,25600,4,500,0.252247,0.504494,1
+OpenMP: usando hasta 4 hilo(s)
+paralelo,25600,4,500,0.255103,0.510206,2
+OpenMP: usando hasta 4 hilo(s)
+paralelo,25600,4,500,0.258674,0.517348,3
+OpenMP: usando hasta 8 hilo(s)
+paralelo,25600,8,500,0.221149,0.442299,1
+OpenMP: usando hasta 8 hilo(s)
+paralelo,25600,8,500,0.252397,0.504795,2
+OpenMP: usando hasta 8 hilo(s)
+paralelo,25600,8,500,0.244239,0.488478,3
+OpenMP: usando hasta 16 hilo(s)
+paralelo,25600,16,500,0.335935,0.671870,1
+OpenMP: usando hasta 16 hilo(s)
+paralelo,25600,16,500,0.337443,0.674886,2
+OpenMP: usando hasta 16 hilo(s)
+paralelo,25600,16,500,0.316565,0.633130,3
+OpenMP: usando hasta 24 hilo(s)
+paralelo,25600,24,500,0.478740,0.957479,1
+OpenMP: usando hasta 24 hilo(s)
+paralelo,25600,24,500,0.402558,0.805117,2
+OpenMP: usando hasta 24 hilo(s)
+paralelo,25600,24,500,0.440036,0.880072,3

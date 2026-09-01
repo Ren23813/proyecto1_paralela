@@ -10,6 +10,9 @@
 #define WINDOW_WIDTH  1920
 #define WINDOW_HEIGHT 1080
 
+#define BENCHMARK_FRAMES 500
+#define BENCHMARK_DT     0.016f
+
 // --- Reparto proporcional del N total entre los 3 tipos ---
 #define RATIO_DRAGONS   0.45f   // este porcentaje de N = total de SEGMENTOS de cuerpo de dragon
 #define RATIO_FIREWORKS 0.40f
@@ -52,6 +55,11 @@ int main(int argc, char* argv[]) {
 
     srand((unsigned int)time(NULL));
 
+
+
+    int benchmarkMode = (argc >= 3 && strcmp(argv[2], "--benchmark") == 0);
+
+
     // ================= REPARTO DE N =================
     int dragonBodyTotal = (int)(N * RATIO_DRAGONS);
     int numFireworks    = (int)(N * RATIO_FIREWORKS);
@@ -65,11 +73,15 @@ int main(int argc, char* argv[]) {
     // con un maximo de MAX_BODY_PER_DRAGON cada uno (division hacia arriba).
     int numDragons = (dragonBodyTotal + MAX_BODY_PER_DRAGON - 1) / MAX_BODY_PER_DRAGON;
 
-    printf("N total = %d\n", N);
-    printf("  Dragones: %d dragon(es), %d segmentos de cuerpo en total (max %d por dragon)\n",
-           numDragons, dragonBodyTotal, MAX_BODY_PER_DRAGON);
-    printf("  Fuegos artificiales: %d\n", numFireworks);
-    printf("  Lamparas: %d\n", numLanterns);
+
+    if (!benchmarkMode) {
+        printf("N total = %d\n", N);
+        printf("  Dragones: %d dragon(es), %d segmentos de cuerpo en total (max %d por dragon)\n",
+               numDragons, dragonBodyTotal, MAX_BODY_PER_DRAGON);
+        printf("  Fuegos artificiales: %d\n", numFireworks);
+        printf("  Lamparas: %d\n", numLanterns);
+    }
+
 
     // ================= RESERVA DE MEMORIA =================
     Dragon* dragons = malloc(numDragons * sizeof(Dragon));
@@ -117,6 +129,35 @@ int main(int argc, char* argv[]) {
         lanterns[i].x = lanterns[i].baseX;
         lanterns[i].y = lanterns[i].baseY;
     }
+
+
+    if (benchmarkMode) {
+        clock_t startClock = clock();
+
+        for (int frame = 0; frame < BENCHMARK_FRAMES; frame++) {
+            float elapsedTime = frame * BENCHMARK_DT;
+
+            for (int i = 0; i < numDragons; i++)
+                updateDragon(&dragons[i], BENCHMARK_DT, WINDOW_WIDTH, WINDOW_HEIGHT);
+
+            for (int i = 0; i < numFireworks; i++)
+                updateFirework(&fireworks[i], particles, BENCHMARK_DT, WINDOW_WIDTH, WINDOW_HEIGHT);
+
+            for (int i = 0; i < numLanterns; i++)
+                updateLantern(&lanterns[i], elapsedTime);
+        }
+
+        double totalTime = (double)(clock() - startClock) / CLOCKS_PER_SEC;
+
+        printf("secuencial,%d,1,%d,%.6f,%.6f\n",
+               N, BENCHMARK_FRAMES, totalTime, (totalTime / BENCHMARK_FRAMES) * 1000.0);
+
+        for (int i = 0; i < numDragons; i++) freeDragon(&dragons[i]);
+        free(dragons); free(fireworks); free(particles); free(lanterns);
+        return 0;
+    }
+
+
 
     // ================= VENTANA SDL =================
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
