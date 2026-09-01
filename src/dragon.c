@@ -357,17 +357,24 @@ static void drawDragonHeadArtFixed(SDL_Renderer* renderer) {
 
 // Capa "de piel" (hocico, cabeza, nariz, orejas): se tine con
 // SDL_SetTextureColorMod segun el color de cada dragon.
-static SDL_Texture* s_headTexNormalSkin = NULL;
-static SDL_Texture* s_headTexMirrorSkin = NULL;
+//
+// IMPORTANTE (version paralela): estas texturas estan atadas al
+// SDL_Renderer que las creo (SDL no permite usar una textura de un
+// renderer en otro). Como la version paralela puede tener VARIOS
+// renderers independientes (uno por "capa" de profundidad, cada uno
+// dibujado por un hilo distinto), mantenemos un cache POR CAPA en vez de
+// uno solo global. s_headTexNormalSkin[layerIndex] es el cache que le
+// corresponde al renderer de esa capa; nunca se mezclan entre si.
+static SDL_Texture* s_headTexNormalSkin[DRAGON_MAX_RENDER_LAYERS] = { NULL };
+static SDL_Texture* s_headTexMirrorSkin[DRAGON_MAX_RENDER_LAYERS] = { NULL };
 // Capa "de estrellas" (melena/estallido): 4 variantes horneadas, una por
-// cada posible color de piel del dragon (indice 0..3 = DRAGON_PALETTE).
-// Nunca se tine: cada variante ya trae los 3 colores reales que le
-// sobran a ese color de piel.
-static SDL_Texture* s_headTexNormalStars[DRAGON_PALETTE_SIZE] = { NULL };
-static SDL_Texture* s_headTexMirrorStars[DRAGON_PALETTE_SIZE] = { NULL };
+// cada posible color de piel del dragon (indice 0..3 = DRAGON_PALETTE),
+// y ahora ademas una copia por cada capa de render.
+static SDL_Texture* s_headTexNormalStars[DRAGON_MAX_RENDER_LAYERS][DRAGON_PALETTE_SIZE] = { { NULL } };
+static SDL_Texture* s_headTexMirrorStars[DRAGON_MAX_RENDER_LAYERS][DRAGON_PALETTE_SIZE] = { { NULL } };
 // Capa "fija" (ojo, dientes, boca, fosa nasal, cuerno): jamas se tine.
-static SDL_Texture* s_headTexNormalFixed = NULL;
-static SDL_Texture* s_headTexMirrorFixed = NULL;
+static SDL_Texture* s_headTexNormalFixed[DRAGON_MAX_RENDER_LAYERS] = { NULL };
+static SDL_Texture* s_headTexMirrorFixed[DRAGON_MAX_RENDER_LAYERS] = { NULL };
 
 static SDL_Texture* makeHeadLayerTexture(SDL_Renderer* renderer, void (*drawFn)(SDL_Renderer*)) {
     SDL_Texture* tex = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888,
@@ -406,15 +413,20 @@ static SDL_Texture* makeMirroredTexture(SDL_Renderer* renderer, SDL_Texture* sou
     return tex;
 }
 
-static void ensureHeadTextures(SDL_Renderer* renderer) {
-    if (s_headTexNormalSkin) return;
+// layerIndex identifica que renderer/capa esta pidiendo las texturas. Si
+// ese renderer en particular aun no tiene su cache construido, lo crea
+// AHORA usando ese mismo renderer (nunca uno distinto). Dos hilos jamas
+// llaman esto con el mismo layerIndex al mismo tiempo (cada capa la
+// procesa un solo hilo por frame), asi que no hace falta lock aqui.
+static void ensureHeadTextures(SDL_Renderer* renderer, int layerIndex) {
+    if (s_headTexNormalSkin[layerIndex]) return;
 
     SDL_Texture* prevTarget = SDL_GetRenderTarget(renderer);
 
-    s_headTexNormalSkin  = makeHeadLayerTexture(renderer, drawDragonHeadArtSkin);
-    s_headTexNormalFixed = makeHeadLayerTexture(renderer, drawDragonHeadArtFixed);
-    s_headTexMirrorSkin  = makeMirroredTexture(renderer, s_headTexNormalSkin);
-    s_headTexMirrorFixed = makeMirroredTexture(renderer, s_headTexNormalFixed);
+    s_headTexNormalSkin[layerIndex]  = makeHeadLayerTexture(renderer, drawDragonHeadArtSkin);
+    s_headTexNormalFixed[layerIndex] = makeHeadLayerTexture(renderer, drawDragonHeadArtFixed);
+    s_headTexMirrorSkin[layerIndex]  = makeMirroredTexture(renderer, s_headTexNormalSkin[layerIndex]);
+    s_headTexMirrorFixed[layerIndex] = makeMirroredTexture(renderer, s_headTexNormalFixed[layerIndex]);
 
     // Por cada posible color de piel, la melena usa los OTROS 3 colores
     // de la paleta (en el orden en que aparecen, saltandose el propio).
@@ -429,17 +441,17 @@ static void ensureHeadTextures(SDL_Renderer* renderer) {
             otherColors[n].a = 255;
             n++;
         }
-        s_headTexNormalStars[skinIdx] = makeStarsLayerTexture(renderer,
+        s_headTexNormalStars[layerIndex][skinIdx] = makeStarsLayerTexture(renderer,
                                              otherColors[0], otherColors[1], otherColors[2]);
-        s_headTexMirrorStars[skinIdx] = makeMirroredTexture(renderer, s_headTexNormalStars[skinIdx]);
+        s_headTexMirrorStars[layerIndex][skinIdx] = makeMirroredTexture(renderer, s_headTexNormalStars[layerIndex][skinIdx]);
     }
 
     SDL_SetRenderTarget(renderer, prevTarget);
 }
 
 void renderDragonHead(SDL_Renderer* renderer, float x, float y, float scale, float angleDeg,
-                       Uint8 r, Uint8 g, Uint8 b, int colorIndex) {
-    ensureHeadTextures(renderer);
+                       Uint8 r, Uint8 g, Uint8 b, int colorIndex, int layerIndex) {
+    ensureHeadTextures(renderer, layerIndex);
 
     // Normalizar el angulo a (-180, 180]
     float a = angleDeg;
@@ -467,9 +479,9 @@ void renderDragonHead(SDL_Renderer* renderer, float x, float y, float scale, flo
     }
     float anchorLocalY = NECK_ANCHOR_Y;
 
-    SDL_Texture* starsTex = facingRight ? s_headTexMirrorStars[colorIndex] : s_headTexNormalStars[colorIndex];
-    SDL_Texture* skinTex  = facingRight ? s_headTexMirrorSkin : s_headTexNormalSkin;
-    SDL_Texture* fixedTex = facingRight ? s_headTexMirrorFixed : s_headTexNormalFixed;
+    SDL_Texture* starsTex = facingRight ? s_headTexMirrorStars[layerIndex][colorIndex] : s_headTexNormalStars[layerIndex][colorIndex];
+    SDL_Texture* skinTex  = facingRight ? s_headTexMirrorSkin[layerIndex] : s_headTexNormalSkin[layerIndex];
+    SDL_Texture* fixedTex = facingRight ? s_headTexMirrorFixed[layerIndex] : s_headTexNormalFixed[layerIndex];
 
     // Solo la piel recibe el tinte del dragon (hocico, cabeza, nariz,
     // orejas). Las estrellas ya vienen "horneadas" con sus 3 colores
@@ -614,7 +626,8 @@ void updateDragon(Dragon* dragon, float dt, int windowW, int windowH) {
 }
 
 void renderDragon(SDL_Renderer* renderer, const Dragon* dragon,
-                    float headScale, float bodyHalfWidth, float bodyHalfHeight) {
+                    float headScale, float bodyHalfWidth, float bodyHalfHeight,
+                    int layerIndex) {
     Uint8 r = (Uint8)dragon->r, g = (Uint8)dragon->g, b = (Uint8)dragon->b;
     float depthScale = 1.0f / dragon->depth;   // <-- nuevo
 
@@ -624,5 +637,5 @@ void renderDragon(SDL_Renderer* renderer, const Dragon* dragon,
     }
 
     const Segment* head = &dragon->segments[0];
-    renderDragonHead(renderer, head->x, head->y, headScale * depthScale, head->angle, r, g, b, dragon->colorIndex);
+    renderDragonHead(renderer, head->x, head->y, headScale * depthScale, head->angle, r, g, b, dragon->colorIndex, layerIndex);
 }

@@ -203,7 +203,7 @@ int main(int argc, char* argv[]) {
             switch (e->type) {
                 case ELEM_LANTERN:  renderLantern(renderer, &lanterns[e->index]); break;
                 case ELEM_FIREWORK: renderFirework(renderer, &fireworks[e->index], particles); break;
-                case ELEM_DRAGON:   renderDragon(renderer, &dragons[e->index], HEAD_SCALE, BODY_HALF_WIDTH, BODY_HALF_HEIGHT); break;
+                case ELEM_DRAGON:   renderDragon(renderer, &dragons[e->index], HEAD_SCALE, BODY_HALF_WIDTH, BODY_HALF_HEIGHT, 0); break;
             }
         }
         SDL_RenderPresent(renderer);
