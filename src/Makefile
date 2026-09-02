@@ -19,13 +19,13 @@
 # silenciosamente -- carpetas separadas evitan ese problema de raiz.
 
 CC            := gcc
-CFLAGS_COMMON := -O2 -Wall -Wextra $(shell pkg-config --cflags sdl2)
-LDLIBS        := $(shell pkg-config --libs sdl2) -lm
+CFLAGS_COMMON := -O2 -Wall -Wextra $(shell pkg-config --cflags sdl2 SDL2_image)
+LDLIBS        := $(shell pkg-config --libs sdl2 SDL2_image) -lm
 
 SEQ_BIN := secuencial
 PAR_BIN := paralelo
 
-COMMON_SRC := dragon.c firework.c lantern.c framebuffer.c
+COMMON_SRC := dragon.c firework.c lantern.c framebuffer.c background.c
 
 SEQ_DIR := build-secuencial
 PAR_DIR := build-paralelo

@@ -115,4 +115,14 @@ void fbBlitRotatedTinted(FrameBuffer* fb, const Uint32* src, int srcW, int srcH,
                           Uint8 tintR, Uint8 tintG, Uint8 tintB,
                           int yStart, int yEnd);
 
+// Compone (alpha blend, pixel a pixel) una imagen ya cargada en RAM que
+// mide EXACTAMENTE lo mismo que el framebuffer (mismo ancho y alto) --
+// pensada para un fondo que calza perfecto con la resolucion de la
+// ventana, sin rotar ni escalar nada. Los pixeles transparentes de la
+// imagen (alpha=0) se saltan, dejando ver lo que ya haya en el
+// framebuffer (por ejemplo, el color de fondo puesto por fbClearRows).
+// Recortado a [yStart, yEnd), asi que se puede llamar en paralelo por
+// bandas igual que las demas primitivas.
+void fbCompositeFullscreen(FrameBuffer* fb, const Uint32* img, int yStart, int yEnd);
+
 #endif

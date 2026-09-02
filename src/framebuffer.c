@@ -253,3 +253,17 @@ void fbBlitRotatedTinted(FrameBuffer* fb, const Uint32* src, int srcW, int srcH,
         }
     }
 }
+
+void fbCompositeFullscreen(FrameBuffer* fb, const Uint32* img, int yStart, int yEnd) {
+    if (yStart < 0) yStart = 0;
+    if (yEnd > fb->height) yEnd = fb->height;
+    for (int y = yStart; y < yEnd; y++) {
+        const Uint32* srow = img + (size_t)y * fb->width;
+        for (int x = 0; x < fb->width; x++) {
+            Uint8 r, g, b, a;
+            fbUnpackRGBA8888(srow[x], &r, &g, &b, &a);
+            if (a == 0) continue; // deja ver lo que ya hay debajo (el color de fondo)
+            fbBlendPixel(fb, x, y, r, g, b, a);
+        }
+    }
+}

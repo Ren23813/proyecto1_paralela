@@ -7,9 +7,18 @@
 #include "firework.h"
 #include "dragon.h"
 #include "framebuffer.h"
+#include "background.h"
 
 #define WINDOW_WIDTH  1920
 #define WINDOW_HEIGHT 1080
+
+// Imagen de fondo: PNG con transparencia, EXACTAMENTE a la resolucion de
+// la ventana (WINDOW_WIDTH x WINDOW_HEIGHT), para que calce perfecto sin
+// tener que escalar nada. Se dibuja como la capa mas al fondo -- despues
+// de limpiar con el color de fondo (fbClearRows) y antes de cualquier
+// dragon/firework/lantern -- asi sus zonas transparentes siguen dejando
+// ver el color que se ponga en el codigo.
+#define BACKGROUND_IMAGE_PATH "fondo.png"
 
 // --- Reparto proporcional del N total entre los 3 tipos ---
 #define RATIO_DRAGONS   0.45f   // este porcentaje de N = total de SEGMENTOS de cuerpo de dragon
@@ -180,6 +189,11 @@ int main(int argc, char* argv[]) {
     buildLanternTemplate();       // una sola vez, antes del loop
     initDragonHeadArt(renderer);  // idem: hornea el arte de la cabeza a RAM
 
+    // Imagen de fondo: se carga una sola vez a RAM. Si no se encuentra o
+    // falla la carga, seguimos sin fondo (no es un error fatal) -- ya se
+    // imprimio el motivo en stderr dentro de loadBackgroundImage.
+    Uint32* bgPixels = loadBackgroundImage(BACKGROUND_IMAGE_PATH, WINDOW_WIDTH, WINDOW_HEIGHT);
+
     // ================= LOOP PRINCIPAL =================
     Uint32 startTicks = SDL_GetTicks();
     Uint32 lastTicks = startTicks;
@@ -234,6 +248,7 @@ int main(int argc, char* argv[]) {
         // queda correctamente intercalada por profundidad con fuegos y
         // faroles.
         fbClearRows(fb, 12, 12, 30, 0, WINDOW_HEIGHT);
+        if (bgPixels) fbCompositeFullscreen(fb, bgPixels, 0, WINDOW_HEIGHT);
         for (int i = 0; i < totalElems; i++) {
             RenderEntry* e = &renderOrder[i];
             switch (e->type) {
@@ -281,6 +296,7 @@ int main(int argc, char* argv[]) {
     free(renderOrder);
     fbDestroy(fb);
     SDL_DestroyTexture(screenTex);
+    freeBackgroundImage(bgPixels);
 
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
