@@ -1,12 +1,14 @@
-// src/framebuffer.c
 #include <stdlib.h>
 #include <math.h>
 #include <limits.h>
 #include "framebuffer.h"
 
+//// CREACIÓN Y DESTRUCCIÓN
 FrameBuffer* fbCreate(int width, int height) {
     FrameBuffer* fb = malloc(sizeof(FrameBuffer));
     if (!fb) return NULL;
+
+    // Reserva memoria continua para la matriz de píxeles
     fb->pixels = malloc(sizeof(Uint32) * (size_t)width * (size_t)height);
     if (!fb->pixels) { free(fb); return NULL; }
     fb->width = width;
@@ -20,7 +22,9 @@ void fbDestroy(FrameBuffer* fb) {
     free(fb);
 }
 
+//// OPERACIONES BASE A NIVEL DE PÍXEL Y LÍNEA
 void fbClearRows(FrameBuffer* fb, Uint8 r, Uint8 g, Uint8 b, int yStart, int yEnd) {
+    // Delimitación estricta de bordes dentro del área de la pantalla
     if (yStart < 0) yStart = 0;
     if (yEnd > fb->height) yEnd = fb->height;
     Uint32 val = fbPackRGBA8888(r, g, b, 255);
@@ -31,10 +35,17 @@ void fbClearRows(FrameBuffer* fb, Uint8 r, Uint8 g, Uint8 b, int yStart, int yEn
 }
 
 void fbBlendPixel(FrameBuffer* fb, int x, int y, Uint8 r, Uint8 g, Uint8 b, Uint8 a) {
+    //// Verificación rápida de límites
     if ((unsigned)x >= (unsigned)fb->width || (unsigned)y >= (unsigned)fb->height) return;
     if (a == 0) return;
+
     Uint32* p = fb->pixels + (size_t)y * fb->width + x;
-    if (a >= 255) { *p = fbPackRGBA8888(r, g, b, 255); return; }
+
+    //// Si es completamente opaco, reemplaza directamente el valor evitando descompresión
+    if (a >= 255) 
+    { *p = fbPackRGBA8888(r, g, b, 255); return; }
+
+    // Mezclado Alpha "Source Over" simplificado entero: (Src * A + Dst * (255 - A)) / 255
     Uint8 dr, dg, db, da;
     fbUnpackRGBA8888(*p, &dr, &dg, &db, &da);
     int ia = (int)a;
@@ -44,11 +55,15 @@ void fbBlendPixel(FrameBuffer* fb, int x, int y, Uint8 r, Uint8 g, Uint8 b, Uint
     *p = fbPackRGBA8888(outR, outG, outB, 255);
 }
 
+// PRIMITIVAS RASTERIZADAS
 void fbFillCircle(FrameBuffer* fb, int cx, int cy, int radius,
                    Uint8 r, Uint8 g, Uint8 b, Uint8 a, int yStart, int yEnd) {
     if (radius < 1) radius = 1;
+
+    // Recorte vertical restringido a la banda del hilo [yStart, yEnd)
     int y0 = cy - radius; if (y0 < yStart) y0 = yStart;
     int y1 = cy + radius; if (y1 > yEnd - 1) y1 = yEnd - 1;
+    // Rasterización por líneas horizontales evaluando la ecuación de la circunferencia
     for (int y = y0; y <= y1; y++) {
         int dy = y - cy;
         int limitSq = radius * radius - dy * dy;
@@ -66,6 +81,7 @@ void fbThickLine(FrameBuffer* fb, double x0, double y0, double x1, double y1,
     int steps = (int)dist + 1;
     int rad = thickness / 2;
     if (rad < 1) rad = 1;
+    // Rasterización por líneas horizontales evaluando la ecuación de la circunferencia
     for (int s = 0; s <= steps; s++) {
         double t = (double)s / steps;
         int px = (int)(x0 + (x1 - x0) * t);
@@ -78,6 +94,7 @@ void fbThickLine(FrameBuffer* fb, double x0, double y0, double x1, double y1,
 void fbCircleOutline(FrameBuffer* fb, int cx, int cy, int radius,
                       Uint8 r, Uint8 g, Uint8 b, Uint8 a, int yStart, int yEnd) {
     int x = radius, y = 0, err = 1 - radius;
+    // Algoritmo del punto medio (Midpoint Circle / Bresenham)
     while (x >= y) {
         int cand[8][2] = {
             { cx + x, cy + y }, { cx + y, cy + x }, { cx - y, cy + x }, { cx - x, cy + y },
@@ -99,15 +116,18 @@ void fbCircleOutline(FrameBuffer* fb, int cx, int cy, int radius,
 
 void fbFillPolygon(FrameBuffer* fb, const SDL_Point* pts, int n,
                     Uint8 r, Uint8 g, Uint8 b, Uint8 a, int yStart, int yEnd) {
+    // Encuentra el rango de extensión vertical del polígono
     int miny = pts[0].y, maxy = pts[0].y;
     for (int i = 1; i < n; i++) {
         if (pts[i].y < miny) miny = pts[i].y;
         if (pts[i].y > maxy) maxy = pts[i].y;
     }
+    //corta el rango a la banda horizontal asignada
     if (miny < yStart) miny = yStart;
     if (maxy > yEnd - 1) maxy = yEnd - 1;
     if (miny > maxy) return;
 
+    //Algoritmo Scanline: Intersección de bordes fila por fila
     double* xs = malloc(sizeof(double) * n);
     for (int y = miny; y <= maxy; y++) {
         double yc = y + 0.5;
@@ -119,11 +139,14 @@ void fbFillPolygon(FrameBuffer* fb, const SDL_Point* pts, int n,
                 xs[count++] = pa.x + t * (pb.x - pa.x);
             }
         }
+        //// Ordenamiento por inserción de los puntos de intersección X
         for (int i = 1; i < count; i++) {
             double key = xs[i]; int j = i - 1;
             while (j >= 0 && xs[j] > key) { xs[j + 1] = xs[j]; j--; }
             xs[j + 1] = key;
         }
+
+        //// Relleno de intervalos pares a impares (Even-Odd Rule)
         for (int i = 0; i + 1 < count; i += 2) {
             int xa = (int)ceil(xs[i] - 0.5), xb = (int)floor(xs[i + 1] - 0.5);
             for (int x = xa; x <= xb; x++) fbBlendPixel(fb, x, y, r, g, b, a);
@@ -131,6 +154,7 @@ void fbFillPolygon(FrameBuffer* fb, const SDL_Point* pts, int n,
     }
     free(xs);
 }
+
 
 void fbFillDiamondGradient(FrameBuffer* fb, int cx, int cy,
                             double halfWidth, double halfHeight, double angle_deg,
@@ -187,6 +211,7 @@ void fbFillDiamondGradient(FrameBuffer* fb, int cx, int cy,
     }
 }
 
+// COMPOSICIÓN Y MUESTREO DE TEXTURAS (BLITTING)
 void fbBlitRotatedTinted(FrameBuffer* fb, const Uint32* src, int srcW, int srcH,
                           double anchorSrcX, double anchorSrcY,
                           double dstX, double dstY, double scale, double angleDeg,

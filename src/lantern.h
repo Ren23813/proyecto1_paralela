@@ -6,14 +6,14 @@
 #include "framebuffer.h"
 
 // Se llama una vez al inicio del programa: calcula la forma del farol.
+//Debe invocarse una sola vez durante la fase de inicialización.
 void buildLanternTemplate(void);
 
 // se llama cada frame, por cada farol: actualiza su x,y según el tiempo transcurrido.
 void updateLantern(Lantern* lantern, float elapsedTime);
 
-// Se llama cada frame, por cada farol: lo dibuja en su posicion actual
-// (lantern->x, lantern->y), directo sobre el framebuffer y recortado a la
-// banda de filas [yStart, yEnd) -- para poder llamarlo en paralelo.
+// Dibuja un farol en el framebuffer dentro del rango de filas especificado.
+//  Compatible con la renderización multihilo por división en bandas horizontales.
 void renderLantern(FrameBuffer* fb, const Lantern* lantern, int yStart, int yEnd);
 
 #endif

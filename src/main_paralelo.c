@@ -13,20 +13,15 @@
 #define WINDOW_WIDTH  1920
 #define WINDOW_HEIGHT 1080
 
-// Imagen de fondo: PNG con transparencia, EXACTAMENTE a la resolucion de
-// la ventana (WINDOW_WIDTH x WINDOW_HEIGHT), para que calce perfecto sin
-// tener que escalar nada. Se dibuja como la capa mas al fondo -- despues
-// de limpiar con el color de fondo (fbClearRows) y antes de cualquier
-// dragon/firework/lantern -- asi sus zonas transparentes siguen dejando
-// ver el color que se ponga en el codigo.
+// Imagen de fondo
 #define BACKGROUND_IMAGE_PATH "fondo.png"
 
-// --- Reparto proporcional del N total entre los 3 tipos ---
+//  Reparto proporcional del N total entre los 3 tipos 
 #define RATIO_DRAGONS   0.45f
 #define RATIO_FIREWORKS 0.40f
 #define RATIO_LANTERNS  0.15f
 
-// --- Constantes de diseno de cada tipo (no son "N", son detalles fijos) ---
+// Constantes de diseno de cada tipo (no son "N", son detalles fijos) 
 #define MAX_BODY_PER_DRAGON     15
 #define HEAD_SCALE               0.20f
 #define BODY_HALF_WIDTH          30.0f
@@ -36,18 +31,11 @@
 
 #define PARTICLES_PER_FIREWORK   40
 
-// --- Bandas de render por hilo ---
+// Bandas de render por hilo 
 // Se reparte la pantalla en bandas horizontales de filas y cada hilo
 // dibuja UNA banda completa (todos los elementos, recortados a esa banda)
 // en el framebuffer. Como las bandas son disjuntas, dos hilos jamas
 // escriben el mismo pixel -> no hace falta ningun lock.
-//
-// Usamos mas bandas que hilos para poder usar schedule(dynamic): los
-// elementos no se reparten parejo en la pantalla (un dragon puede tener
-// hasta 15 rombos concentrados en una zona chica), asi que con bandas mas
-// finas, un hilo al que le toca una banda "vacia" termina rapido y agarra
-// la siguiente banda libre, en vez de quedar ocioso esperando a un hilo
-// al que le toco una banda cargada.
 #define BANDS_PER_THREAD 4
 
 
@@ -89,7 +77,7 @@ int main(int argc, char* argv[]) {
 
     srand((unsigned int)time(NULL));
 
-    // ================= REPARTO DE N =================
+    // REPARTO DE N 
     int dragonBodyTotal = (int)(N * RATIO_DRAGONS);
     int numFireworks    = (int)(N * RATIO_FIREWORKS);
     int numLanterns     = N - dragonBodyTotal - numFireworks;
@@ -179,7 +167,7 @@ int main(int argc, char* argv[]) {
     }
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
-    // ================= FRAMEBUFFER =================
+    // FRAMEBUFFER 
     // Ver el comentario largo en main_secuencial.c: en vez de dibujar con
     // llamadas de SDL_Renderer (no paralelizables, con mucho overhead por
     // pixel), dibujamos sobre un arreglo de pixeles en RAM que se reparte
@@ -213,7 +201,7 @@ int main(int argc, char* argv[]) {
     if (numBands < 1) numBands = 1;
     int bandHeight = (WINDOW_HEIGHT + numBands - 1) / numBands;
 
-    // ================= LOOP PRINCIPAL =================
+    //  LOOP PRINCIPAL 
     Uint32 startTicks = SDL_GetTicks();
     Uint32 lastTicks = startTicks;
     Uint32 frameCount = 0, fpsTimerStart = startTicks;
@@ -247,7 +235,7 @@ int main(int argc, char* argv[]) {
         // region parallel) para no pagar el costo de crear hilos 3 veces
         // por frame. "nowait" en los dos primeros porque los arreglos
         // (dragons, fireworks/particles, lanterns) son independientes entre
-        // si -- no hace falta esperar a que termine uno para empezar el
+        // si no hace falta esperar a que termine uno para empezar el
         // siguiente.
         #pragma omp parallel
         {
@@ -277,15 +265,7 @@ int main(int argc, char* argv[]) {
         //      cada uno que cae dentro de su banda -- cuerpo Y cabeza de
         //      cada dragon incluidos, ya que ninguno de los dos depende
         //      de SDL_Renderer.
-        //
-        // Como las bandas son disjuntas (cada fila pertenece a un solo
-        // hilo), dos hilos JAMAS escriben el mismo pixel del framebuffer:
-        // no hace falta ningun lock ni seccion critica. Y como cada hilo
-        // procesa los elementos en el mismo orden global de profundidad,
-        // el "pintor" (atras hacia adelante) se sigue respetando bien
-        // dentro de cada banda -- el resultado visual es identico al de
-        // la version secuencial (cabeza incluida, en su lugar correcto de
-        // profundidad), solo que calculado en paralelo.
+    
         #pragma omp parallel for schedule(dynamic)
         for (int band = 0; band < numBands; band++) {
             int y0 = band * bandHeight;
@@ -310,7 +290,7 @@ int main(int argc, char* argv[]) {
                         break;
                 }
             }
-        } // <- barrera implicita: todas las bandas terminaron antes de subir la textura
+        } // barrera implicita: todas las bandas terminaron antes de subir la textura
 
         // Subir el framebuffer completo a la pantalla de una sola vez --
         // ya no hace falta ningun paso aparte despues de esto.
@@ -319,7 +299,7 @@ int main(int argc, char* argv[]) {
 
         SDL_RenderPresent(renderer);
 
-        // --- FPS ---
+        //FPS 
         frameCount++;
         Uint32 elapsedMs = now - fpsTimerStart;
         if (elapsedMs >= 1000) {

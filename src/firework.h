@@ -16,7 +16,7 @@ void updateFirework(Firework* fw, Particle* particles, float dt,
                      int windowW, int windowH);
 
 // Dibuja el firework directo sobre el framebuffer, recortado a la banda de
-// filas [yStart, yEnd) -- para poder llamarlo en paralelo por bandas.
+// filas [yStart, yEnd) para poder llamarlo en paralelo por bandas.
 void renderFirework(FrameBuffer* fb, const Firework* fw, const Particle* particles,
                      int yStart, int yEnd);
 

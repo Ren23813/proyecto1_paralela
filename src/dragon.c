@@ -1,5 +1,4 @@
-// src/dragon.c
-//
+
 // Cabeza de dragon: una funcion por cada tipo de figura (circulo/ovalo,
 // rectangulo redondeado, gota, estrella, linea ondulada, palito con rama)
 // y drawDragonHeadArtColor()/drawDragonHeadArtFixed() que las combinan en
@@ -8,24 +7,13 @@
 // prototipo (nada de esto cambia con la animacion).
 //
 // Para poder mover/rotar/escalar/espejar la cabeza sin reescribir cada
-// funcion de dibujo, se dibuja UNA sola vez por capa (skin/estrellas/
-// fija, normal y espejada) a una textura de SDL, y esa textura se lee de
-// vuelta a un simple arreglo de pixeles en RAM (SDL_RenderReadPixels).
-// De ahi en adelante, cada frame, la cabeza se dibuja rotada/escalada/
-// teñida directo sobre el framebuffer con fbBlitRotatedTinted (en
-// framebuffer.c) -- el mismo truco de "muestreo con transformacion
-// inversa" que hace SDL_RenderCopyEx por dentro, pero implementado a mano
-// para poder escribir en nuestro propio buffer en paralelo por bandas, y
-// para poder intercalar la cabeza en el orden de profundidad correcto
-// junto con el cuerpo, los fuegos artificiales y los faroles (antes,
-// como la cabeza dependia de SDL_Renderer para dibujarse, tenia que ir en
-// una pasada aparte, siempre por encima de todo).
+// funcion de dibujo, se dibuja UNA sola vez por capa 
 
 #include <math.h>
 #include <stdlib.h>
 #include "dragon.h"
 
-// Los 4 colores "oficiales" del dragon (rojo, azul, amarillo, verde).
+// Los 4 colores del dragon (rojo, azul, amarillo, verde).
 // Cada dragon nuevo toma el siguiente color de la lista (initDragon), y
 // las 3 estrellas del estallido usan los OTROS 3 colores que le sobran
 // a ese color de piel (initDragonHeadArt / renderDragon).
@@ -39,7 +27,6 @@ static const float DRAGON_PALETTE[4][3] = {
 
 /* ===================================================================
  *  PRIMITIVAS GENERICAS (rellenar circulo, poligono, rectangulo, etc.)
- *  -- SOLO se usan para "hornear" las capas de la cabeza UNA vez
  *  (initDragonHeadArt). No corren por frame, asi que no hace falta
  *  tocarlas.
  * =================================================================== */
@@ -231,10 +218,10 @@ void renderDragonBodySegment(FrameBuffer* fb, const Segment* seg,
                            yStart, yEnd);
 }
 
-/* ===================================================================
+/* 
  *  ENSAMBLAJE: la cabeza completa del dragon (coordenadas originales,
  *  SIN TOCAR -- esto es exactamente lo que ya te habia quedado bien)
- * =================================================================== */
+ */
 
 /* --- CAPA DE PIEL: hocico, cabeza, nariz y orejas (todo lo que antes era
  * "rojo"). Se dibuja en tonos de GRIS/BLANCO puro (no en rojo) para que,

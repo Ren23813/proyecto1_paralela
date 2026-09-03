@@ -12,12 +12,7 @@
 #define WINDOW_WIDTH  1920
 #define WINDOW_HEIGHT 1080
 
-// Imagen de fondo: PNG con transparencia, EXACTAMENTE a la resolucion de
-// la ventana (WINDOW_WIDTH x WINDOW_HEIGHT), para que calce perfecto sin
-// tener que escalar nada. Se dibuja como la capa mas al fondo -- despues
-// de limpiar con el color de fondo (fbClearRows) y antes de cualquier
-// dragon/firework/lantern -- asi sus zonas transparentes siguen dejando
-// ver el color que se ponga en el codigo.
+// Imagen de fondo
 #define BACKGROUND_IMAGE_PATH "fondo.png"
 
 // --- Reparto proporcional del N total entre los 3 tipos ---
@@ -237,16 +232,7 @@ int main(int argc, char* argv[]) {
         // --- RENDER (secuencial) ---
         // Limpiar + dibujar TODO (cuerpo y cabeza de cada dragon, fuegos y
         // faroles) en el framebuffer, en el mismo orden de profundidad
-        // (renderOrder). En esta version es UNA sola "banda" que cubre
-        // toda la pantalla (sin recorte real), para poder comparar
-        // limpiamente contra la version paralela: el algoritmo de dibujo
-        // es EXACTAMENTE el mismo en ambas, la unica diferencia real va a
-        // ser que la version paralela reparte este mismo trabajo entre
-        // varios hilos. Como la cabeza ya no depende de SDL_Renderer,
-        // entra en esta misma pasada -- ya no hace falta una pasada
-        // aparte por encima de todo, asi que la cabeza de cada dragon
-        // queda correctamente intercalada por profundidad con fuegos y
-        // faroles.
+        // (renderOrder). 
         fbClearRows(fb, 12, 12, 30, 0, WINDOW_HEIGHT);
         if (bgPixels) fbCompositeFullscreen(fb, bgPixels, 0, WINDOW_HEIGHT);
         for (int i = 0; i < totalElems; i++) {
